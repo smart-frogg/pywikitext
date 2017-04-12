@@ -11,7 +11,7 @@ class XMLWikiParser(xml.sax.ContentHandler):
 
         self.CODE = 'utf-8'
 
-        self.textFile = open(directory+"plainText.dat", 'wb')
+        self.textFile = open(directory+"text.dat", 'wb')
         self.titleFile = open(directory+"title.dat", 'wb')
         self.directory = directory;
         
@@ -75,22 +75,19 @@ class XMLWikiParser(xml.sax.ContentHandler):
 
         if self.inText:
             self.text += content
-
-
     def endDocument(self):
         self.textFile.close()
         self.titleFile.close()
-        with open(self.directory + 'titleIndex' + '.pkl', 'wb') as f:
+        with open(self.directory + 'titleIndex.pcl', 'wb') as f:
             pickle.dump(self.titleDict, f, pickle.HIGHEST_PROTOCOL)
-        with open(self.directory + 'plainTextIndex' + '.pkl', 'wb') as f:
-            pickle.dump(self.textDict, f, pickle.HIGHEST_PROTOCOL)
-
+        with open(self.directory + 'textIndex.pcl', 'wb') as f:
+            pickle.dump(self.textDict, f, pickle.HIGHEST_PROTOCOL)       
 
 def main(wikiDumpFile, directory):
     inputXml = codecs.open(directory+wikiDumpFile, 'r', 'utf-8')
     xml.sax.parse(inputXml, XMLWikiParser(directory))
     print('Finish!')
 
-directory = "C:\\WORK\\science\\onpositive_data\\python\\"
+#directory = "C:\\WORK\\science\\onpositive_data\\python\\"
 #main('30000.xml', 'title_and_id.dat', 'id_and_shift.dat', 'indexed_wiki.dat')
-main('articles.xml', directory)
+#main('articles.xml', directory)

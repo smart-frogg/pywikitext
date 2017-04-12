@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-import WikiIndex
-import WikiTokenizer
 import TextToken 
 
 class TokenSplitter:
@@ -15,8 +13,10 @@ class TokenSplitter:
                 self.curWord,
                 self.hasSpaceLeft,
                 self.hasSpaceRight,
-                self.tokenType))   
-        self.curWord = '' 
+                self.tokenType,
+                self.tokenNum))   
+        self.curWord = ''
+        self.tokenNum += 1 
         
     def split(self,text):
         self.wordArray = []
@@ -25,6 +25,7 @@ class TokenSplitter:
         self.hasSpaceLeft = False
         self.hasSpaceRight = False
         self.tokenType = TextToken.TYPE_TOKEN
+        self.tokenNum = 0
         for letter in text:
             if (self.tokenType == TextToken.TYPE_SIGN): # Add sign
                 if (self.spaces.find(letter) != -1):
@@ -61,20 +62,20 @@ class TokenSplitter:
     
     def getTokenArray(self):
         return self.tokenArray 
+        
                                   
-directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-tokenizer = WikiTokenizer.WikiTokenizer()
-wikiIndex = WikiIndex.WikiIndex(directory)
+#directory = "C:\\WORK\\science\\onpositive_data\\python\\"
+#tokenizer = WikiTokenizer.WikiTokenizer()
+#wikiIndex = WikiIndex.WikiIndex(directory)
 #print(wikiIndex.getTextArticleById(7))
-print("------------------------------------------------------------")
-cleanText = tokenizer.clean(wikiIndex.getTextArticleById(7))
+#print("------------------------------------------------------------")
+#cleanText = tokenizer.clean(wikiIndex.getTextArticleById(7))
 #print(cleanText)
 
-wordSplitter = TokenSplitter()
-words = wordSplitter.split(cleanText)
-for word in words:
-    print(word)     
-tokens = wordSplitter.getTokenArray()    
-for token in tokens:
-    print(token)      
-          
+#wordSplitter = TokenSplitter()
+#words = wordSplitter.split(cleanText)
+#for word in words:
+#    print(word)     
+#tokens = wordSplitter.getTokenArray()    
+#for token in tokens:
+#    print(token)      
