@@ -3,7 +3,7 @@ import pymorphy2
 from functools import lru_cache
 
 class CachedPymorphyMorph:
-    def __init__(self, directory):
+    def __init__(self):
         self.morph = pymorphy2.MorphAnalyzer()
         #self.cache = {}
     @lru_cache(maxsize=1024)    

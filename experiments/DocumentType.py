@@ -7,30 +7,47 @@ from antlrwiki.gen.wiki_markupLexer import wiki_markupLexer
 from antlrwiki.gen.wiki_markupParser import wiki_markupParser
 from abc import ABCMeta, abstractmethod
 
+REDIRECT = "REDIRECT"
 class DocumentTypeConfig:
     doctypes = None
     propsToDoctypes = {}
     templatesToDoctypes= {}
+    prefixesToDoctypes = {}
+    categoriesToDoctypes = {}
+    doctypeList = []
     def __new__(cls,directory):
         if not DocumentTypeConfig.doctypes:
             with open(directory + 'DocumentTypeConfig.json', encoding="utf8") as data_file:    
                 doctypes = json.load(data_file,encoding="utf-8")
                 for doctype in doctypes:
                     doctype['name'] = doctype['name'].lower()
-                    for template in doctype['templates']:
-                        template['name'] = template['name'].lower()
-                        DocumentTypeConfig.templatesToDoctypes[template['name']] = doctype['name']    
+                    DocumentTypeConfig.doctypeList.append(doctype['name'])
+                    if (doctype.get('templates',None)):
+                        for template in doctype['templates']:
+                            template = template.lower()
+                            DocumentTypeConfig.templatesToDoctypes[template] = doctype['name']    
                     if (doctype.get('properties',None)): 
                         for prop in doctype['properties']:
-                            prop['name'] = prop['name'].lower()
-                            DocumentTypeConfig.propsToDoctypes[prop['name']] = doctype['name']
+                            prop = prop.lower()
+                            DocumentTypeConfig.propsToDoctypes[prop] = doctype['name']
+                    if (doctype.get('prefixes',None)): 
+                        for prefix in doctype['prefixes']:
+                            prefix = prefix.lower()
+                            DocumentTypeConfig.prefixesToDoctypes[prefix] = doctype['name']
+                    if (doctype.get('categories',None)): 
+                        for category in doctype['categories']:
+                            category = category.lower()
+                            DocumentTypeConfig.categoriesToDoctypes[category] = doctype['name']
         return doctypes 
     @staticmethod
     def getDocTypeByTemplate(template):
         return DocumentTypeConfig.templatesToDoctypes.get(template)
     @staticmethod
-    def getDocTypeByProperty(property):
-        return DocumentTypeConfig.propertiesToDoctypes.get(property)
+    def getDocTypeByProperty(prop):
+        return DocumentTypeConfig.propertiesToDoctypes.get(prop)
+    @staticmethod
+    def getDocTypeByPrefix(prefix):
+        return DocumentTypeConfig.propertiesToDoctypes.get(prefix)
 
 class WikiDocTypeParser(metaclass=ABCMeta):
     @abstractmethod
@@ -41,25 +58,38 @@ class StupidTemplateParser (WikiDocTypeParser):
     def __init__(self, directory):
         self.templatePatterns = {}
         self.propertyPatterns = {}
+        self.categoryPatterns = {}
         self.doctypes = DocumentTypeConfig(directory)
-        for property in  DocumentTypeConfig.propsToDoctypes.keys():
-            self.propertyPatterns[property] = re.compile('\|[ \t\r\n]*'+property+'[ \t\r\n]*=', re.VERBOSE)
+        for prop in  DocumentTypeConfig.propsToDoctypes.keys():
+            self.propertyPatterns[prop] = re.compile('\|[ \t\r\n]*'+prop+'[ \t\r\n]*=')
         for template in  DocumentTypeConfig.templatesToDoctypes.keys():    
-            self.templatePatterns[template] = re.compile('\{\{[ \t]*'+template, re.VERBOSE)
+            self.templatePatterns[template] = re.compile('\{\{[ \t]*'+template)
+        for category in  DocumentTypeConfig.categoriesToDoctypes.keys():    
+            self.categoryPatterns[category] = re.compile('\[\[[ \t]*категория:'+category)
   
-    def getDocType(self,text):
-        result = None
+    def getDocType(self,text,title):
+        result = set()
+        preparedText = text.lower()
+        preparedTitle = title.lower()
+
         for template in  DocumentTypeConfig.templatesToDoctypes.keys():
-            match = self.templatePatterns[template].search(text.lower())
+            match = self.templatePatterns[template].search(preparedText)
             if match:
-                result = DocumentTypeConfig.templatesToDoctypes[template]
+                result.add(DocumentTypeConfig.templatesToDoctypes[template])
                 break
-        if not result:
-            for property in  DocumentTypeConfig.propsToDoctypes.keys():
-                match = self.propertyPatterns[property].search(text.lower())
-                if match:
-                    result = DocumentTypeConfig.propsToDoctypes[property]
-                    break
+        for prop in  DocumentTypeConfig.propsToDoctypes.keys():
+            match = self.propertyPatterns[prop].search(preparedText)
+            if match:
+                result.add(DocumentTypeConfig.propsToDoctypes[prop])
+                break
+        for category in  DocumentTypeConfig.categoriesToDoctypes.keys():
+            match = self.categoryPatterns[category].search(preparedText)
+            if match:
+                result.add(DocumentTypeConfig.categoriesToDoctypes[category])
+                break
+        for prefix in  DocumentTypeConfig.prefixesToDoctypes.keys():
+            if preparedTitle.startswith(prefix+":"):
+                result.add(DocumentTypeConfig.prefixesToDoctypes[prefix])
         return result    
         
     
@@ -89,7 +119,7 @@ class ANTLRTemplateParser (WikiDocTypeParser):
                 properties.add(c.getText())
         return properties    
     
-    def getDocType(self,text):
+    def getDocType(self,text,title):
         result = None
         lexer = wiki_markupLexer(text)
         stream = CommonTokenStream(lexer)
@@ -107,15 +137,34 @@ class ANTLRTemplateParser (WikiDocTypeParser):
                     break                        
         return result        
                                  
-class DocumentTypeIndex:
-    def __init__(self, directory):
-        self.directory = directory
-        self.doctypes = DocumentTypeConfig(directory)
-        with open(self.directory + 'DocTypes.pcl', 'rb') as f: 
-            self.data = pickle.load(f)
-            f.close()
+from pywikiaccessor import wiki_iterator,wiki_accessor, wiki_file_index
+class DocumentTypeIndex(wiki_file_index.WikiFileIndex):
+    def __init__(self, wikiAccessor):
+        super(DocumentTypeIndex, self).__init__(wikiAccessor)
+    
+    def getDictionaryFiles(self): 
+        return ['IdToDocTypes','DocTypesToId']
+                        
+    def getDocTypeById(self, ident):
+        return self.dictionaries['IdToDocTypes'].get(ident, None)
+    
+    def getDocsOfType(self,docType):
+        return self.dictionaries['DocTypesToId'][docType]
 
-from pywikiaccessor import wiki_iterator,wiki_accessor
+    def getDocsWithoutType(self):
+        res = []
+        for docId in self.dictionaries['IdToDocTypes'].keys():
+            if len(self.dictionaries['IdToDocTypes'][docId]) == 0:
+                res.append(docId)
+        return res
+
+    def getBuilder(self):
+        return DocumentTypeIndexBuilder(self.accessor)
+   
+    def getName(self):
+        return "Document types"
+
+
 class DocumentTypeIndexBuilder (wiki_iterator.WikiIterator):
     
     def __init__(self, accessor):
@@ -132,32 +181,75 @@ class DocumentTypeIndexBuilder (wiki_iterator.WikiIterator):
         return
 
     def postProcess(self):
-        with open(self.accessor.directory + 'DocTypes.pcl', 'wb') as f:
-            pickle.dump(self.data, f, pickle.HIGHEST_PROTOCOL)
+        with open(self.accessor.directory + 'IdToDocTypes.pcl', 'wb') as f:
+            pickle.dump(self.dataToTypes, f, pickle.HIGHEST_PROTOCOL)
+        with open(self.accessor.directory + 'DocTypesToId.pcl', 'wb') as f:
+            pickle.dump(self.dataToIds, f, pickle.HIGHEST_PROTOCOL)
 
     def preProcess(self):
-        self.data = {}
+        self.dataToTypes = {}
+        self.dataToIds = {}
         self.redirects = self.accessor.redirectIndex
+        self.titleIndex = self.accessor.titleIndex
+        self.dataToIds[REDIRECT] = set()
              
     def clear(self):
         return 
                                               
     def processDocument(self, docId):
         if self.redirects.isRedirect(docId):
+            self.dataToTypes[docId] = REDIRECT
+            self.dataToIds[REDIRECT].add(docId)
             return
-        text = self.accessor.baseIndex.getTextArticleById(docId).lower()
+        title = self.accessor.titleIndex.getTitleById(docId)
+        text = self.accessor.baseIndex.getTextArticleById(docId)
         #print(text)
-        self.data[docId] = self.docTypeParser.getDocType(text)
+        self.dataToTypes[docId] = self.docTypeParser.getDocType(text,title)
+        for docType in self.dataToTypes[docId]:
+            if not self.dataToIds.get(docType,None):
+                self.dataToIds[docType] = set()
+            self.dataToIds[docType].add(docId)
             
 
-directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-accessor =  wiki_accessor.WikiAccessorFactory.getAccessor(directory)
-bld = DocumentTypeIndexBuilder(accessor)
-bld.build()
+#directory = "C:\\WORK\\science\\onpositive_data\\python\\"
+#accessor =  wiki_accessor.WikiAccessorFactory.getAccessor(directory)
+#titleIndex = accessor.titleIndex
+#print(titleIndex.getTitleById(5243160))
+#bld = MoscowSearcher(accessor)
+#bld.build()
+#print(bld.count)     
+#index = DocumentTypeIndex(accessor)
+#print(index.getDocTypeById(titleIndex.getIdByTitle("Арцебарский, Анатолий Павлович")))
+#print(index.getDocTypeById(titleIndex.getIdByTitle("Пушкин, Александр Сергеевич")))
+#print(index.getDocTypeById(titleIndex.getIdByTitle("Хрущёв, Никита Сергеевич")))
+#print(index.getDocTypeById(titleIndex.getIdByTitle("Бегичев, Матвей Семёнович")))
+#print(index.getDocTypeById(titleIndex.getIdByTitle("категория:москва")))
+#print(index.getDocTypeById(10989))
+#print(titleIndex.getTitleById(10989))
+#print(accessor.redirectIndex.getRedirect(titleIndex.getIdByTitle("Москва (город)")))
+
+#print(index.getDocTypeById(titleIndex.getIdByTitle("Санкт-Петербург")))
+#print(index.getDocTypeById(titleIndex.getIdByTitle("Екатеринбург")))
+#dWt = index.getDocsWithoutType()
+#print(len(dWt))
+#DocumentTypeConfig(directory)
+#for docType in DocumentTypeConfig.doctypeList:
+#    r = index.getDocsOfType(docType)
+#    print(docType+": "+str(len(r)))
+#for docId in dWt:
+#    print(titleIndex.getTitleById(docId))
+
+#bld = DocumentTypeIndexBuilder(accessor)
+#bld.build()
 #titleIndex = accessor.titleIndex
 #
+
 #bld.preProcess()
-#doc_id = titleIndex.getIdByTitle("Арцебарский, Анатолий Павлович") 
+#doc_id = titleIndex.getIdByTitle("категория:москва") 
+#bld.processDocument(doc_id)                
+#print(bld.data)
+
+#doc_id = titleIndex.getIdByTitle("категория:министры культуры и туризма азербайджана") 
 #bld.processDocument(doc_id)                
 #print(bld.data)
 #doc_id = titleIndex.getIdByTitle("Барнаул")

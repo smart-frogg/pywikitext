@@ -3,16 +3,20 @@ from pywikiaccessor.wiki_base_index import WikiBaseIndex
 from abc import ABCMeta, abstractmethod
 
 class WikiIterator(metaclass=ABCMeta):
-    def __init__(self, accessor, fileCount):
+    def __init__(self, accessor, fileCount, docList = None):
         self.accessor = accessor
         self.fileCount = fileCount
-                
+        self.docList = docList
+
     def build (self, start=0):
         self.wikiIndex = WikiBaseIndex(self.accessor)
         self.preProcess()
         articlesCount = 0
         self.prevArticlesCount = 0;
-        indexes = self.wikiIndex.getIds()
+        if self.docList:
+            indexes = self.docList
+        else:  
+            indexes = self.wikiIndex.getIds()
         indexes = indexes[start:len(indexes)]
         print("Need to process "+str(len(indexes)) + " docs.")
         for i in indexes:

@@ -29,7 +29,7 @@ class WikiPlainTextIndex(wiki_file_index.WikiFileIndex):
     def getIds(self):
         return list(self.textDict.keys())
     def getBuilder(self):
-        return WikiPlainTextBuilder(self.directory)
+        return WikiPlainTextBuilder(self.accessor)
     def getName(self):
         return "plainTexts"
 
@@ -37,20 +37,20 @@ class WikiPlainTextBuilder (wiki_iterator.WikiIterator):
     
     def __init__(self, directory):
         self.CODE = 'utf-8'
-        super(WikiPlainTextBuilder, self).__init__(directory, 10000)
+        super(WikiPlainTextBuilder, self).__init__(directory, 100000)
 
     def processSave(self,articlesCount):
         return
 
     def postProcess(self):
         self.textFile.close()
-        with open(self.directory + 'plainTextIndex.pcl', 'wb') as f:
+        with open(self.accessor.directory + 'plainTextIndex.pcl', 'wb') as f:
             pickle.dump(self.textDict, f, pickle.HIGHEST_PROTOCOL)
 
 
     def preProcess(self):
-        self.textFile = open(self.directory+"plainText.dat", 'wb')
-        self.tokenizer = wiki_tokenizer.WikiTokenizer.WikiTokenizer()
+        self.textFile = open(self.accessor.directory+"plainText.dat", 'wb')
+        self.tokenizer = wiki_tokenizer.WikiTokenizer()
         self.textShift = 0
         self.textDict = {}
                

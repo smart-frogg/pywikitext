@@ -70,7 +70,6 @@ class WikiTokenizer:
     def genLink(self,s,l,t):
         lst = list(t)
         return WikiLink(lst[0][0],lst[0][1:])
-                
     def initGrammar(self):
         L_Equals = Word("=")
         N_comment = htmlComment()
@@ -110,7 +109,19 @@ class WikiTokenizer:
         self.template2 = re.compile('\{\|([^\{\}]*)\|\}', re.VERBOSE)
         self.longLinks = re.compile('\[\[([^\[\]\|]*)\|([^\[\]\|]*)\]\]', re.VERBOSE)
         self.shortLinks = re.compile('\[\[([^\[\]\|]*)\]\]', re.VERBOSE)
-        self.refLinks = re.compile('<ref>([^<]*)</ref>', re.VERBOSE)
+        self.refLinks = re.compile('<ref[^>]*>([^<]*)</ref>', re.VERBOSE)
+        self.nowiki = re.compile('<nowiki[^>]*>([^<]*)</nowiki>', re.VERBOSE)
+        self.br = re.compile('<br>', re.VERBOSE)
+        self.tags = [re.compile('<blockquote[^>]*>([^<]*)</blockquote>', re.VERBOSE),
+                     re.compile('<center[^>]*>([^<]*)</center>', re.VERBOSE),
+                     re.compile('<small[^>]*>([^<]*)</small>', re.VERBOSE),
+                     re.compile('<big[^>]*>([^<]*)</big>', re.VERBOSE),
+                     re.compile('<s[^>]*>([^<]*)</s>', re.VERBOSE),
+                     re.compile('<span[^>]*>([^<]*)</span>', re.VERBOSE),
+                     re.compile('<u[^>]*>([^<]*)</u>', re.VERBOSE),
+                     re.compile('<sup[^>]*>([^<]*)</sup>', re.VERBOSE),
+                     re.compile('<sub[^>]*>([^<]*)</sub>', re.VERBOSE),
+                     ]
         self.fileLinks = re.compile('\[\[([^\[\]\|]*)\|([^\[\]\|]*)(\|([^\[\]\|]*))+\]\]', re.VERBOSE)
         self.comments = re.compile('(<!--(.+)-->)', re.VERBOSE)
         self.apostrofs = re.compile("'''(.+)'''", re.VERBOSE)
@@ -140,6 +151,10 @@ class WikiTokenizer:
         res = self.applyPattern(self.template,'',res)
         res = self.applyPattern(self.template2,'',res)
         res = self.applyPattern(self.refLinks,'',res)
+        res = self.applyPattern(self.nowiki,'',res)
+        res = self.applyPattern(self.br,'',res)
+        for tag in self.tags:
+            res = self.applyPattern(tag,'\g<1>',res)
         res = self.applyPattern(self.shortLinks,'\g<1>',res)
         res = self.applyPattern(self.fileLinks,'',res)
         res = self.applyPattern(self.longLinks,'\g<2>',res)
@@ -150,9 +165,28 @@ class WikiTokenizer:
             res = res.replace(letter,self.lettersDictionary[letter])
         return res
 
-N_comment = htmlComment()
-data = N_comment.scanString("Текст <!-- Комментарий --> Тут просто текст");
-print(str(data))
+def genComment(s,l,t):
+    lst = list(t)
+    return lst                
+
+#N_comment = htmlComment().setParseAction( genComment ) 
+#data = N_comment.scanString(u"Текст <!-- Комментарий --> Тут просто текст");
+#print(str(data))
+
+def genLink(s,l,t):
+    lst = list(t)
+    return WikiLink(lst[0][0],lst[0][1:])
+
+N_name = CharsNotIn("{}|[]")
+N_link = nestedExpr( 
+    opener="[[", 
+    closer="]]", 
+    content= N_name + Optional("|" + delimitedList(CharsNotIn("[]"),delim="|"))
+    ).setParseAction( genLink )
+    
+    
+#data = N_link.parseString("[[минерал|минеральные материалы]]")
+#print(data)
 #tokenizer = WikiTokenizer()
 #ref_start, ref_end = makeHTMLTags("ref")
 #N_named_ref = ref_start + SkipTo(ref_end) + ref_end

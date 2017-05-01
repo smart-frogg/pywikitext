@@ -53,22 +53,16 @@ class RedirectsIndexBuilder (wiki_iterator.WikiIterator):
                
     def clear(self):
         return 
-
-    def findArticleId(self,title):
-        res = self.titleIndex.getIdByTitle(title)
-        if res == None:
-            return self.titleIndex.getIdByTitle("Категория:"+title)
-        return res
                                          
     def processDocument(self, docId):
         text = self.wikiIndex.getTextArticleById(docId).lower()
         res = self.complexRedirect.match(text)
         if res != None:
-            self.data[docId] = RedirectPageFabric.createRedirectPage(self.findArticleId(res.group(3)),res.group(4))
+            self.data[docId] = RedirectPageFabric.createRedirectPage(self.titleIndex.findArticleId(res.group(3)),res.group(4))
             return
         res = self.simpleRedirect.match(text)
         if res != None:
-            self.data[docId] = RedirectPageFabric.createRedirectPage(self.findArticleId(res.group(3)),"")
+            self.data[docId] = RedirectPageFabric.createRedirectPage(self.titleIndex.findArticleId(res.group(3)),"")
 
 #simpleRedirect = re.compile('\#REDIRECT([^\[])*\[\[([^\]]+)\]\]', re.VERBOSE)    
 #complexRedirect = re.compile('\#REDIRECT([^\[])\[\[([^\]\#]+)\#([^\]]+)\]\]', re.VERBOSE)         
