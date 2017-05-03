@@ -35,7 +35,7 @@ class TextStat:
     def getStem(self,token):
         return token.POS[0]['normalForm'].replace('ё','е')
     
-    def buildPOSSurface(self, minWindowSize = 10, maxWindowSize = 300):
+    def buildPOSSurface(self, minWindowSize = 50, maxWindowSize = 1000):
         self.tokenSplitter.split(self.text)
         tokens = self.tokenSplitter.getTokenArray()  
         self.posTagger.posTagging(tokens) 
@@ -138,7 +138,7 @@ class TextStat:
         with open(self.file +'-surface.pcl', 'wb') as f:
             pickle.dump(self.data, f, pickle.HIGHEST_PROTOCOL)
 
-textStat = TextStat("C:/WORK/science/onpositive_data/python/texts/sule2.txt")
-textStat.buildPOSSurface()
-textStat = TextStat("C:/WORK/science/onpositive_data/python/texts/sule3.txt")
-textStat.buildPOSSurface()
+directory = "C:/WORK/science/onpositive_data/python/texts/"
+for file in ["ladno.txt","sule1.txt","sule2.txt","sule3.txt"]:
+    textStat = TextStat(directory+file)
+    textStat.buildPOSSurface()

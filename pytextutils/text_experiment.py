@@ -2,12 +2,12 @@ import plotly.offline as py
 import plotly.graph_objs as go
 import pickle
 
-with open("C:/WORK/science/onpositive_data/python/texts/sule1.txt-surface.pcl", 'rb') as f:
+with open("C:/WORK/science/onpositive_data/python/texts/sule3.txt-surface.pcl", 'rb') as f:
     allData = pickle.load(f)
 
 data = []
 size = None
-PARAM = "UNIQUE_ADJS"
+PARAM = "UNIQUE_NOUNS"
 for dEl in allData[PARAM]:
     max_value = max(allData[PARAM][dEl])
     min_value = min(allData[PARAM][dEl])
@@ -22,4 +22,10 @@ for dEl in allData[PARAM]:
 trace = go.Heatmap(z=data,
                    y=list(allData["DOTS"].keys()))
 picture=[trace]
-print(py.plot(picture, filename='labelled-heatmap.html'))
+
+py.plot(picture, image='png',image_filename='a-simple-plot.png')
+from IPython.display import Image
+Image('a-simple-plot.png')             
+
+#print(py.plot(picture, filename='labelled-heatmap.html'))
+

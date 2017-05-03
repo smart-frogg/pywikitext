@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 import pymysql
 from pytextutils.token_splitter import TokenSplitter, Token, TYPE_TOKEN, POSTagger
-import math
-import CachedPymorphyMorph
 from pywikiaccessor.wiki_accessor import WikiAccessorFactory
 from pywikiaccessor.wiki_iterator import WikiIterator
+import numpy as np
+import pytextutils.k_means as k_means
 
 class VerbListBuilder (WikiIterator):
     __TRESHOLD = 0.0005
@@ -97,17 +97,78 @@ class VerbListBuilder (WikiIterator):
         #else:
             # print (docId)
 class VerbsListIndex:
-    pass
-    
+    def __init__(self):
+        self.dbConnection = pymysql.connect(host='localhost', port=3306, user='root', passwd='',charset='utf8', db='wikiparse')
+        self.dbCursor = self.dbConnection.cursor()
+        self.getAllStatQuery = "SELECT verbs.id as id, verbs.stem as stem, count(`verb_to_doc`.id) as cnt FROM `verb_to_doc`,verbs WHERE `verb_to_doc`.verb_id = verbs.id group by verbs.id order by cnt desc"
+        self.getVerbIdsQuery = "select id from (SELECT verbs.id as id, verbs.stem as stem, count(`verb_to_doc`.id) as cnt FROM `verb_to_doc`,verbs WHERE `verb_to_doc`.verb_id = verbs.id group by verbs.id) as table1 where cnt > 1 "
+        self.getHistQueryLeft = "SELECT verb_id, doc_id, count(id) as cnt FROM `verb_to_doc` WHERE verb_id in ("
+        self.getHistQueryRight = ") group by verb_id,doc_id order by verb_id asc, doc_id asc"
+        self.getVerbsQuery = "SELECT verbs.id, verbs.stem FROM verbs"
+        self.getDimentionQuery = "SELECT count(DISTINCT doc_id) as cnt FROM `verb_to_doc`"
+        self.verbs = None
+    def getAllStat(self):
+        self.dbCursor.execute(self.getAllStatQuery)
+        res = []
+        for element in self.dbCursor.fetchall():
+            res.append ({'id': element['id'],'stem': element['stem'],'cnt': element['cnt']})
+        return res    
+    def getHists(self):        
+        self.dbCursor.execute(self.getVerbIdsQuery)
+        ids = []
+        self.verbRenum = {}
+        self.docRenum = {}
+        for element in self.dbCursor.fetchall():
+            ids.append(str(element[0]))
+            self.verbRenum[element[0]] = len(self.verbRenum)
+        self.dbCursor.execute(self.getDimentionQuery)
+        dim = self.dbCursor.fetchone()  
+        hist = np.zeros((len(ids),dim[0]))
+          
+        self.dbCursor.execute(self.getHistQueryLeft+",".join(ids)+self.getHistQueryRight)
+        
+        for element in self.dbCursor.fetchall():
+            if not self.docRenum.get(element[1],None):
+                self.docRenum[element[1]] = len(self.docRenum)
+            x = self.verbRenum[element[0]]
+            y = self.docRenum[element[1]]
+            hist[x,y] = element[2]
+        return hist
+    def getVerbs(self):
+        if not self.verbs:        
+            self.dbCursor.execute(self.getVerbsQuery)
+            self.verbs = {}
+            for element in self.dbCursor.fetchall():
+                self.verbs[element[0]] = element[1]
+        return self.verbs
+    def similarity(self,a,b):
+        similarity = (a * b).sum()
+        
+        return similarity / (np.linalg.norm(a)*np.linalg.norm(b))      
+         
+    def clusterizeVerbs(self, clusterCount, iterations):
+        data = self.getHists() 
+        return k_means.clusterize(data,clusterCount, iterations,self.similarity)            
 
 directory = "C:\\WORK\\science\\onpositive_data\\python\\"
 accessor = WikiAccessorFactory.getAccessor(directory)
+verbsListIndex = VerbsListIndex()
+centers, verbsClusters = verbsListIndex.clusterizeVerbs(5, 2000)
+verbs = verbsListIndex.getVerbs()
+for verbId in verbs.keys():
+    goodVerbId = verbsListIndex.verbRenum.get(verbId,None)
+    if goodVerbId:
+        print(str(verbs[verbId])+" \t "+str(verbsClusters[goodVerbId]))
+#for cid, center in enumerate(centers):
+#    print (cid)
+#    for coordId,coord in center.items():
+#        print(str(coordId)+" : "+str(coord))
 
-from DocumentType import DocumentTypeIndex
-docTypesIndex = DocumentTypeIndex(accessor)
-docIds = docTypesIndex.getDocsOfType("event")
-bld = VerbListBuilder(accessor,list(docIds))
-bld.build()
+#from DocumentType import DocumentTypeIndex
+#docTypesIndex = DocumentTypeIndex(accessor)
+#docIds = docTypesIndex.getDocsOfType("event")
+#bld = VerbListBuilder(accessor,list(docIds))
+#bld.build()
 '''
 titleIndex = accessor.titleIndex
 bld = VerbListBuilder(accessor)

@@ -3,9 +3,13 @@ import CachedPymorphyMorph
 TYPE_TOKEN = 1
 TYPE_SIGN = 2
 TYPE_WORD = 3
+BIG_CYR_LETTERS = "ЁЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ"
+ALL_CYR_LETTERS = "ёйцукенгшщзхъфывапролджэячсмитьбюЁЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ"
+DIGITS = '1234567890'
+SPACES = ' \r\n\t'
+SIGNS = '\'\\~!@#$%^&*()_+`"№;:?-={}[]<>/|—«».,„'
+
 class Token:
-    __digits = '1234567890'
-    __cyr = "ёйцукенгшщзхъфывапролджэячсмитьбюЁЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ"
     def __init__(self, token, spaceLeft, spaceRight, tokenType, tokenNum):
         self.token = token
         self.spaceLeft = spaceLeft
@@ -23,16 +27,16 @@ class Token:
             return self.POS[0]['POS']
         return None
     def hasDigits(self):
-        return any(i in Token.__digits for i in self.token)
+        return any(i in DIGITS for i in self.token)
     def onlyDigits(self):
-        return all(i in Token.__digits for i in self.token)
+        return all(i in DIGITS for i in self.token)
     def allCyr(self):
-        return all(i in Token.__cyr for i in self.token)         
+        return all(i in ALL_CYR_LETTERS for i in self.token)         
 
 class POSTagger: 
     __TRESHOLD = 0.0005   
     __notAVerbs = set(["при","начало","три","день","части","времени","минут","мини","мину","плей","плети","трем","трём","cочи","Сочи"])
-    __bigLetters = "ЁЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ"
+    
     def __init__(self):
         self.morph = CachedPymorphyMorph.CachedPymorphyMorph()
     def posTagging(self,tokens):
@@ -52,7 +56,7 @@ class POSTagger:
                         continue
                     if i > 0 and tokens[i-1].getBestPOS() == 'PREP':
                         continue
-                    if i > 0 and tokens[i].token[0] in POSTagger.__bigLetters and not tokens[i-1].token == '.':
+                    if i > 0 and tokens[i].token[0] in BIG_CYR_LETTERS and not tokens[i-1].token == '.':
                         continue
                     
                 element = {'POS' : res.tag.POS,
@@ -66,8 +70,7 @@ class POSTagger:
     
 class TokenSplitter:
     def __init__(self):
-        self.spaces = ' \r\n\t'
-        self.signs = '\'\\~!@#$%^&*()_+`"№;:?-={}[]<>/|—«».,„'
+        pass
     
     def addToken(self):    
         self.wordArray.append(self.curWord)
@@ -91,7 +94,7 @@ class TokenSplitter:
         self.tokenNum = 0
         for letter in text:
             if (self.tokenType == TYPE_SIGN): # Add sign
-                if (self.spaces.find(letter) != -1):
+                if (letter in SPACES):
                     self.hasSpaceRight = True
                 else:
                     self.hasSpaceRight = False
@@ -100,12 +103,12 @@ class TokenSplitter:
                 self.hasSpaceLeft = False
                 self.tokenType = TYPE_TOKEN  
             
-            if (letter in self.spaces): # Add when not sign and find space
+            if (letter in SPACES): # Add when not sign and find space
                 self.hasSpaceRight = True
                 if (len(self.curWord)>0):
                     self.addToken()
                 self.hasSpaceLeft = True
-            elif (letter in self.signs): # Create word with sign
+            elif (letter in SIGNS): # Create word with sign
                 self.hasSpaceRight = False
                 if (len(self.curWord)>0):
                     self.addToken()
