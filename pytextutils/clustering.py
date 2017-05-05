@@ -2,7 +2,60 @@
 import random
 import numpy as np
 
-def clusterize(data, clusterCount, iterations, similarityFunction):
+def tree(data, similarityFunction, avgFunction):
+    dataIds = range(0,data.shape[0])
+    tree = []
+    for i in dataIds:
+        tree.append(data[i])
+
+    while len(tree) >1:  
+        maxSim = 0
+        maxSimId = 0 
+        for i in range(0,len(tree)-1):
+            curSim = similarityFunction(tree[i],tree[i+1])
+            if(curSim > maxSim):
+                maxSim = curSim
+                maxSimId = i    
+        tree[maxSimId] = {
+            'data':[tree[maxSimId],tree[maxSimId+1]],
+            'avg':avgFunction(tree[maxSimId],tree[maxSimId+1]),
+            'sim':maxSim}
+        del tree[maxSimId+1]
+    return tree    
+
+def evklidAvg(a,b):
+    avgA = a
+    avgB = b
+    if type(a) == dict:
+        avgA = a['avg']
+    if type(b) == dict:
+        avgB = b['avg']
+    return (avgA+avgB)/2
+
+def evklid(a,b):
+    avgA = a
+    avgB = b
+    if type(a) == dict:
+        avgA = a['avg']
+    if type(b) == dict:
+        avgB = b['avg']
+    return 1/(np.linalg.norm(avgB-avgA)+1)
+
+data = np.array([
+    [1],
+    [2],
+    [5],
+    [7],
+    [8],
+    [10],
+    [15],
+    [23],
+    ])
+res = tree(data,evklid,evklidAvg)
+print(res)
+
+    
+def kMeans(data, clusterCount, iterations, similarityFunction):
     '''
     np.array([
         [0,0,0,1,2],

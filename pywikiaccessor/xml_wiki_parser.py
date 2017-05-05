@@ -12,7 +12,6 @@ class XMLWikiParser(xml.sax.ContentHandler):
         self.CODE = 'utf-8'
 
         self.textFile = open(directory+"text.dat", 'wb')
-        self.titleFile = open(directory+"title.dat", 'wb')
         self.directory = directory;
         
         self.inTitle = False
@@ -21,16 +20,15 @@ class XMLWikiParser(xml.sax.ContentHandler):
         self.inRevision = False
         self.titleDict = {}
         self.textDict = {}
-        self.titleShift = 0
         self.textShift = 0
         self.curId = -1;
-        self.titleShiftToSave = 0;
         self.textShiftToSave = 0;
         self.articlesCount = 0;
 
     def startElement(self, name, attr):
         if name == 'title':
             self.inTitle = True
+            self.curTitle = ''
         if name == 'revision':
             self.inRevision = True
         if (name == 'id') & (self.inRevision != True):
@@ -56,28 +54,21 @@ class XMLWikiParser(xml.sax.ContentHandler):
             self.textFile.write(byteArray)
             self.textShift += length+4
         if name == 'page':
-            self.titleDict[self.curId] = self.titleShiftToSave
             self.textDict[self.curId] = self.textShiftToSave
+            self.titleDict[self.curId] = self.curTitle
             self.articlesCount += 1
             if (self.articlesCount % 10000 == 0) :
                 print('Complete '+str(self.articlesCount)+' articles')
                 
     def characters(self, content):
         if self.inTitle:
-            self.titleShiftToSave = self.titleShift
-            byteArray = content.encode(self.CODE)
-            length = len(byteArray)
-            self.titleFile.write(length.to_bytes(4, byteorder='big'))
-            self.titleFile.write(byteArray)
-            self.titleShift += length+4
+            self.curTitle += content
         if self.inId:
             self.curId = int(content)
-
         if self.inText:
             self.text += content
     def endDocument(self):
         self.textFile.close()
-        self.titleFile.close()
         with open(self.directory + 'titleIndex.pcl', 'wb') as f:
             pickle.dump(self.titleDict, f, pickle.HIGHEST_PROTOCOL)
         with open(self.directory + 'textIndex.pcl', 'wb') as f:

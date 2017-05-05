@@ -3,6 +3,7 @@ import CachedPymorphyMorph
 TYPE_TOKEN = 1
 TYPE_SIGN = 2
 TYPE_WORD = 3
+TYPE_COMPLEX_TOKEN = 3
 BIG_CYR_LETTERS = "ЁЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ"
 ALL_CYR_LETTERS = "ёйцукенгшщзхъфывапролджэячсмитьбюЁЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ"
 DIGITS = '1234567890'
@@ -10,10 +11,12 @@ SPACES = ' \r\n\t'
 SIGNS = '\'\\~!@#$%^&*()_+`"№;:?-={}[]<>/|—«».,„'
 
 class Token:
-    def __init__(self, token, spaceLeft, spaceRight, tokenType, tokenNum):
+    def __init__(self, token, spaceLeft, spaceRight, newlineLeft, newlineRight, tokenType, tokenNum):
         self.token = token
         self.spaceLeft = spaceLeft
         self.spaceRight = spaceRight 
+        self.newlineLeft = newlineLeft
+        self.newlineRight = newlineRight 
         self.tokenType = tokenType
         self.tokenNum = tokenNum
     def __str__(self):
@@ -21,6 +24,7 @@ class Token:
     def setAddInfo(self,info):
         self.addInfo = info
     def setPOS(self,pos):
+        self.tokenType = TYPE_WORD
         self.POS = pos
     def getBestPOS(self):
         if self.POS:
@@ -32,16 +36,35 @@ class Token:
         return all(i in DIGITS for i in self.token)
     def allCyr(self):
         return all(i in ALL_CYR_LETTERS for i in self.token)         
+    def fromBigLetter(self):
+        return self.token[0] in BIG_CYR_LETTERS and (
+            len(self.token) <= 1 or
+            not (self.token[1] in BIG_CYR_LETTERS)
+        )
+    def onlyBigLetters(self):
+        return all(i in BIG_CYR_LETTERS for i in self.token)        
+
+[
+    {'newLine':'Left','onlyDigits':True},
+    {'repeat':[{'exact':'.'},{'onlyDigits':True}]},
+    {'optional':[{'exact':'.'}]},
+    {'allUntil':{'newLine':'Left','fromBigLetter':True,'include':False}}
+]
+[
+    {'newLine':'Left','onlyBig':True},
+    {'repeat':[{'exact':'.'}]},
+    {'allUntil':{'onlyBig':True,'include':True}}
+]
 
 class POSTagger: 
     __TRESHOLD = 0.0005   
     __notAVerbs = set(["при","начало","три","день","части","времени","минут","мини","мину","плей","плети","трем","трём","cочи","Сочи"])
+    __morph = CachedPymorphyMorph.CachedPymorphyMorph()
     
-    def __init__(self):
-        self.morph = CachedPymorphyMorph.CachedPymorphyMorph()
+    @staticmethod
     def posTagging(self,tokens):
         for i in range(0,len(tokens)):
-            parse_result = self.morph.parse(tokens[i].token)
+            parse_result = POSTagger.__morph.parse(tokens[i].token)
             if(parse_result == None):
                 continue
             posInfo = []
@@ -90,6 +113,8 @@ class TokenSplitter:
         self.curWord = '' 
         self.hasSpaceLeft = False
         self.hasSpaceRight = False
+        self.hasNewlineLeft = True
+        self.hasNewlineRight = False
         self.tokenType = TYPE_TOKEN
         self.tokenNum = 0
         for letter in text:
@@ -98,16 +123,25 @@ class TokenSplitter:
                     self.hasSpaceRight = True
                 else:
                     self.hasSpaceRight = False
+                if (letter == '\n'):
+                    self.hasNewlineRight = True
+                else:
+                    self.hasNewlineRight = False
                 if (len(self.curWord)>0):
                     self.addToken()
                 self.hasSpaceLeft = False
+                self.hasNewlineLeft = False
                 self.tokenType = TYPE_TOKEN  
             
             if (letter in SPACES): # Add when not sign and find space
                 self.hasSpaceRight = True
+                if (letter == '\n'):
+                    self.hasNewlineRight = True
                 if (len(self.curWord)>0):
                     self.addToken()
                 self.hasSpaceLeft = True
+                if (letter == '\n'):
+                    self.hasNewlineLeft = True
             elif (letter in SIGNS): # Create word with sign
                 self.hasSpaceRight = False
                 if (len(self.curWord)>0):

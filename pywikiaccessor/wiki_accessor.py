@@ -11,6 +11,7 @@ class WikiAccessorFactory:
 from pywikiaccessor.redirects_index import RedirectsIndex
 from pywikiaccessor.wiki_base_index import WikiBaseIndex
 from pywikiaccessor.title_index import TitleIndex 
+#from pywikiaccessor.wiki_categories import CategoryIndex 
 from pywikiaccessor.wiki_plain_text_index import WikiPlainTextIndex
 
 class WikiAccessor():
@@ -18,6 +19,7 @@ class WikiAccessor():
         self.directory = directory
         self.baseIndex = WikiBaseIndex(self)
         self.titleIndex = TitleIndex(self)
+        #self.categoryIndex = CategoryIndex(self)
         self.redirectIndex = RedirectsIndex(self)
         self.plainTextIndex = WikiPlainTextIndex(self)
         self.customIndexes = {}

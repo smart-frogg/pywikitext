@@ -13,11 +13,10 @@ class WikiBaseIndex (WikiFileIndex):
     def getDictionaryFiles(self): 
         return ['titleIndex','textIndex']
     def getOtherFiles(self):    
-        return ["text.dat","title.dat"]
+        return ["text.dat"]
     
     def loadOtherFiles(self):    
         self.textFile = open(self.directory+"text.dat", 'rb')
-        self.titleFile = open(self.directory+"title.dat", 'rb')
                                 
     def getBuilder(self):
         return WikiBaseIndexBuilder(self.directory,"articles.xml")
@@ -25,14 +24,7 @@ class WikiBaseIndex (WikiFileIndex):
         return "base"
     
     def getTitleArticleById(self, ident):
-        if not self.titleDict.get(ident, None):
-            return None
-        else:
-            self.titleFile.seek(self.titleDict[ident],0)
-            lenBytes = self.titleFile.read(4)
-            length = int.from_bytes(lenBytes, byteorder='big')
-            return self.titleFile.read(length).decode("utf-8")
-            
+        return self.titleDict.get(ident, None)            
 
     def getTextArticleById(self, ident):
         if not self.textDict.get(ident, None):

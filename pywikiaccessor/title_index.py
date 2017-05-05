@@ -22,7 +22,7 @@ class TitleIndex (wiki_file_index.WikiFileIndex):
     def findArticleId(self,title):
         res = self.getIdByTitle(title)
         if res == None:
-            return self.getIdByTitle(+title)
+            return self.getIdByTitle(self.CATEGORY_PATTERN+title)
         return res
     def isCategoryTitle(self,title):
         if self.getIdByTitle( self.CATEGORY_PATTERN+title):

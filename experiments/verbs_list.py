@@ -4,7 +4,7 @@ from pytextutils.token_splitter import TokenSplitter, Token, TYPE_TOKEN, POSTagg
 from pywikiaccessor.wiki_accessor import WikiAccessorFactory
 from pywikiaccessor.wiki_iterator import WikiIterator
 import numpy as np
-import pytextutils.k_means as k_means
+import pytextutils.clustering as k_means
 
 class VerbListBuilder (WikiIterator):
     __TRESHOLD = 0.0005

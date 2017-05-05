@@ -7,9 +7,9 @@ class WikiIterator(metaclass=ABCMeta):
         self.accessor = accessor
         self.fileCount = fileCount
         self.docList = docList
+        self.wikiIndex = WikiBaseIndex(self.accessor)
 
     def build (self, start=0):
-        self.wikiIndex = WikiBaseIndex(self.accessor)
         self.preProcess()
         articlesCount = 0
         self.prevArticlesCount = 0;
