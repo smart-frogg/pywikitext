@@ -3,7 +3,6 @@ import pickle
 import re
 
 from pywikiaccessor import wiki_iterator, wiki_file_index
-from pywikiaccessor.one_opened import OneOpened
 
 class RedirectPageFabric:
     @staticmethod

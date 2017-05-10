@@ -154,6 +154,12 @@ class DocumentTypeIndex(wiki_file_index.WikiFileIndex):
     def getDocTypeById(self, ident):
         return self.dictionaries['IdToDocTypes'].get(ident, None)
     
+    def isDocType(self, ident, docType):
+        dtList = self.getDocTypeById(ident)
+        if not dtList:
+            return False 
+        return docType in dtList
+
     def getDocsOfType(self,docType):
         return self.dictionaries['DocTypesToId'][docType]
 
@@ -217,23 +223,24 @@ class DocumentTypeIndexBuilder (wiki_iterator.WikiIterator):
             self.dataToIds[docType].add(docId)
             
 
-directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-accessor =  wiki_accessor.WikiAccessorFactory.getAccessor(directory)
-titleIndex = accessor.titleIndex
-#docId = titleIndex.getIdByTitle('Великая теорема Ферма')
+#directory = "C:\\WORK\\science\\onpositive_data\\python\\"
+#accessor =  wiki_accessor.WikiAccessorFactory.getAccessor(directory)
+#titleIndex = accessor.titleIndex
+#docId = titleIndex.getIdByTitle('Википедия:Посольство')
 
-bld = DocumentTypeIndexBuilder(accessor)
+#bld = DocumentTypeIndexBuilder(accessor)
 #bld.preProcess()
 #bld.processDocument(docId)
 #print(bld.dataToTypes)
-bld.build() 
+#bld.build() 
   
 #print(titleIndex.getTitleById(5243160))
 #bld = MoscowSearcher(accessor)
 #bld.build()
 #print(bld.count)     
 
-index = DocumentTypeIndex(accessor)
+#index = DocumentTypeIndex(accessor)
+#print(index.getDocTypeById(docId))
 #print(index.getDocTypeById(titleIndex.getIdByTitle("Арцебарский, Анатолий Павлович")))
 #print(index.getDocTypeById(titleIndex.getIdByTitle("Пушкин, Александр Сергеевич")))
 #print(index.getDocTypeById(titleIndex.getIdByTitle("Хрущёв, Никита Сергеевич")))
@@ -247,12 +254,12 @@ index = DocumentTypeIndex(accessor)
 #print(titleIndex.getTitleById(10989))
 #print(accessor.redirectIndex.getRedirect(titleIndex.getIdByTitle("Москва (город)")))
 
-dWt = index.getDocsWithoutType()
-print(len(dWt))
-DocumentTypeConfig(directory)
-for docType in DocumentTypeConfig.doctypeList:
-    r = index.getDocsOfType(docType)
-    print(docType+": "+str(len(r)))
+#dWt = index.getDocsWithoutType()
+#print(len(dWt))
+#DocumentTypeConfig(directory)
+#for docType in DocumentTypeConfig.doctypeList:
+#    r = index.getDocsOfType(docType)
+#    print(docType+": "+str(len(r)))
 #for docId in dWt:
 #    print(titleIndex.getTitleById(docId))
 

@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-import CachedPymorphyMorph
+from pytextutils.cached_pymorphy_morph import CachedPymorphyMorph
 TYPE_TOKEN = 1
 TYPE_SIGN = 2
 TYPE_WORD = 3
 TYPE_COMPLEX_TOKEN = 3
 BIG_CYR_LETTERS = "ЁЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ"
+BIG_LATIN_LETTERS = "QWERTYUIOPASDFGHJKLZXCVBNM"
 ALL_CYR_LETTERS = "ёйцукенгшщзхъфывапролджэячсмитьбюЁЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ"
 DIGITS = '1234567890'
 SPACES = ' \r\n\t'
@@ -19,10 +20,11 @@ class Token:
         self.newlineRight = newlineRight 
         self.tokenType = tokenType
         self.tokenNum = tokenNum
+        self.additionalInfo = {}
     def __str__(self):
         return str(self.tokenType) + ' ' + self.token    
-    def setAddInfo(self,info):
-        self.addInfo = info
+    def setAdditionalInfo(self,field,info):
+        self.additionalInfo[field] = info
     def setPOS(self,pos):
         self.tokenType = TYPE_WORD
         self.POS = pos
@@ -42,24 +44,15 @@ class Token:
             not (self.token[1] in BIG_CYR_LETTERS)
         )
     def onlyBigLetters(self):
-        return all(i in BIG_CYR_LETTERS for i in self.token)        
+        return all(i in BIG_CYR_LETTERS or i in BIG_LATIN_LETTERS for i in self.token)   
+    def setInternalTokens(self,tokens):
+        self.internalTokens = tokens     
 
-[
-    {'newLine':'Left','onlyDigits':True},
-    {'repeat':[{'exact':'.'},{'onlyDigits':True}]},
-    {'optional':[{'exact':'.'}]},
-    {'allUntil':{'newLine':'Left','fromBigLetter':True,'include':False}}
-]
-[
-    {'newLine':'Left','onlyBig':True},
-    {'repeat':[{'exact':'.'}]},
-    {'allUntil':{'onlyBig':True,'include':True}}
-]
-
+   
 class POSTagger: 
     __TRESHOLD = 0.0005   
     __notAVerbs = set(["при","начало","три","день","части","времени","минут","мини","мину","плей","плети","трем","трём","cочи","Сочи"])
-    __morph = CachedPymorphyMorph.CachedPymorphyMorph()
+    __morph = CachedPymorphyMorph()
     
     @staticmethod
     def posTagging(self,tokens):
@@ -87,7 +80,7 @@ class POSTagger:
                            'score' : res.score}
                 stems.add(res.normal_form)
                 posInfo.append(element)
-            tokens[i].setAddInfo(parse_result)
+            tokens[i].setAdditionalInfo('parse_result',parse_result)
             tokens[i].setPOS(posInfo)
         
     
@@ -102,6 +95,8 @@ class TokenSplitter:
                 self.curWord,
                 self.hasSpaceLeft,
                 self.hasSpaceRight,
+                self.hasNewlineLeft,
+                self.hasNewlineRight,
                 self.tokenType,
                 self.tokenNum))   
         self.curWord = ''
@@ -129,8 +124,10 @@ class TokenSplitter:
                     self.hasNewlineRight = False
                 if (len(self.curWord)>0):
                     self.addToken()
-                self.hasSpaceLeft = False
-                self.hasNewlineLeft = False
+                self.hasSpaceLeft = self.hasSpaceRight
+                self.hasNewlineLeft = self.hasNewlineRight
+                self.hasSpaceRight = False
+                self.hasNewlineRight = False    
                 self.tokenType = TYPE_TOKEN  
             
             if (letter in SPACES): # Add when not sign and find space
@@ -139,15 +136,18 @@ class TokenSplitter:
                     self.hasNewlineRight = True
                 if (len(self.curWord)>0):
                     self.addToken()
-                self.hasSpaceLeft = True
-                if (letter == '\n'):
-                    self.hasNewlineLeft = True
+                self.hasSpaceLeft = self.hasSpaceRight
+                self.hasNewlineLeft = self.hasNewlineRight
+                self.hasSpaceRight = False
+                self.hasNewlineRight = False    
             elif (letter in SIGNS): # Create word with sign
                 self.hasSpaceRight = False
                 if (len(self.curWord)>0):
                     self.addToken()
                 self.curWord += letter
                 self.tokenType = TYPE_SIGN
+                self.hasSpaceRight = False
+                self.hasNewlineRight = False   
             else:                               #Add letter to word
                 self.curWord += letter
                 self.tokenType = TYPE_TOKEN

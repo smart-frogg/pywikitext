@@ -105,15 +105,15 @@ class CategoryIndexBuilder (wiki_iterator.WikiIterator):
             self.toPagesDict[parentCatId].append(docId)
             self.toPageCatDict[docId].append(parentCatId)
             
-from pywikiaccessor import wiki_accessor
-directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-accessor =  wiki_accessor.WikiAccessorFactory.getAccessor(directory)
-titleIndex = accessor.titleIndex
-docId = titleIndex.getIdByTitle('Категория:Разделы биологии')
-bld = CategoryIndexBuilder(accessor)
-bld.preProcess()
-bld.processDocument(docId)
-print(bld.toPagesDict)
-print(bld.toTitleDict)
+#from pywikiaccessor import wiki_accessor
+#directory = "C:\\WORK\\science\\onpositive_data\\python\\"
+#accessor =  wiki_accessor.WikiAccessorFactory.getAccessor(directory)
+#titleIndex = accessor.titleIndex
+#docId = titleIndex.getIdByTitle('Категория:Разделы биологии')
+#bld = CategoryIndexBuilder(accessor)
+#bld.preProcess()
+#bld.processDocument(docId)
+#print(bld.toPagesDict)
+#print(bld.toTitleDict)
 #bld.build()
 

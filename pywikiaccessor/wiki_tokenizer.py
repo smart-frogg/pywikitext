@@ -121,7 +121,9 @@ class WikiTokenizer:
                      re.compile('<u[^>]*>([^<]*)</u>', re.VERBOSE),
                      re.compile('<sup[^>]*>([^<]*)</sup>', re.VERBOSE),
                      re.compile('<sub[^>]*>([^<]*)</sub>', re.VERBOSE),
+                     re.compile('<math[^>]*>([^<]*)</math>', re.VERBOSE),
                      ]
+        self.brackets = [ re.compile('\\mathbb\{([^\]]+)\}') ]
         self.fileLinks = re.compile('\[\[([^\[\]\|]*)\|([^\[\]\|]*)(\|([^\[\]\|]*))+\]\]', re.VERBOSE)
         self.comments = re.compile('(<!--(.+)-->)', re.VERBOSE)
         self.apostrofs = re.compile("'''(.+)'''", re.VERBOSE)
@@ -154,6 +156,8 @@ class WikiTokenizer:
         res = self.applyPattern(self.nowiki,'',res)
         res = self.applyPattern(self.br,'',res)
         for tag in self.tags:
+            res = self.applyPattern(tag,'\g<1>',res)
+        for tag in self.brackets:
             res = self.applyPattern(tag,'\g<1>',res)
         res = self.applyPattern(self.shortLinks,'\g<1>',res)
         res = self.applyPattern(self.fileLinks,'',res)

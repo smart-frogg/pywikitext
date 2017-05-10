@@ -1,36 +1,55 @@
 # -*- coding: utf-8 -*-
-from pytextutils.token_splitter import Token, TokenSplitter, POSTagger, TYPE_SIGN,TYPE_TOKEN
+from pytextutils.token_splitter import Token, TokenSplitter, POSTagger, TYPE_SIGN, TYPE_TOKEN, TYPE_COMPLEX_TOKEN, BIG_CYR_LETTERS
 from collections import Counter
 import pickle
 import codecs
 
+class TextCleaner:
+    @staticmethod
+    def __clearWraps(text):
+        ind = 0
+        while ind < len(text):
+            curStr = text[ind].strip()
+            if len(curStr)>=2 :
+                while curStr[-1]=='-' and not curStr[-2]==' ' and ind < len(text) :
+                    curStr = curStr[:-1] + text[ind+1].strip()
+                    del text[ind+1]  
+            text[ind] = curStr
+            ind+=1
+        return text 
+    @staticmethod
+    def __concatStrings(text):
+        concatText = text[0]
+        for ind in range (1,len(text)):
+            if (len(text[ind]) > 0 and len(concatText) > 0
+                and (not text[ind][0] in BIG_CYR_LETTERS) 
+                and (not concatText[-1] == '.')
+                ):  
+                concatText += ' ' + text[ind]
+            else:
+                concatText += '\n' + text[ind]  
+        return concatText     
+        
+    @staticmethod    
+    def clean(text):
+        if type(text) == str:
+            workText = text.split("\n")
+        else:
+            workText = text
+        workText = TextCleaner.__clearWraps(workText)
+        workText = TextCleaner.__concatStrings(workText)
+        return workText
+            
 class TextStat:
     def __init__(self,file):
         self.file = file
         with codecs.open(self.file, 'r', "utf-8") as myfile:
             self.text=myfile.readlines()
         
-        self.clearText()
+        TextCleaner.clearText(self.text)
         self.tokenSplitter = TokenSplitter()
         self.posTagger = POSTagger()
         
-    def __clearWraps(self):
-        ind = 0
-        while ind < len(self.text):
-            curStr = self.text[ind].strip()
-            if len(curStr)>=2 :
-                while curStr[-1]=='-' and not curStr[-2]==' ' and ind < len(self.text) :
-                    curStr = curStr[:-1] + self.text[ind+1].strip()
-                    del self.text[ind+1]  
-            self.text[ind] = curStr
-            ind+=1
-    def __concatStrings(self):
-        text = ' '.join(self.text)
-        self.text = text
-        
-    def clearText(self):
-        self.__clearWraps()
-        self.__concatStrings()
     
     def getStem(self,token):
         return token.POS[0]['normalForm'].replace('ё','е')
@@ -138,7 +157,21 @@ class TextStat:
         with open(self.file +'-surface.pcl', 'wb') as f:
             pickle.dump(self.data, f, pickle.HIGHEST_PROTOCOL)
 
-directory = "C:/WORK/science/onpositive_data/python/texts/"
-for file in ["ladno.txt","sule1.txt","sule2.txt","sule3.txt"]:
-    textStat = TextStat(directory+file)
-    textStat.buildPOSSurface()
+#directory = "C:/WORK/science/onpositive_data/python/texts/"
+#file = "sule1.txt"
+#textStat = TextStat(directory+file)
+#print(textStat.text)
+#from pytextutils.formal_grammar import HeaderMatcher 
+#ts = TokenSplitter()
+#ts.split(textStat.text)
+#tokens = ts.getTokenArray()
+#hm = HeaderMatcher()
+#hm.combineTokens(tokens)
+
+#for token in tokens:
+#    if token.tokenType == TYPE_COMPLEX_TOKEN:
+#        print(token.token)
+
+#for file in ["ladno.txt","sule1.txt","sule2.txt","sule3.txt"]:
+#textStat = TextStat(directory+file)
+#textStat.buildPOSSurface()
