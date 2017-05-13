@@ -2,6 +2,7 @@
 import pickle
 
 from pywikiaccessor import wiki_iterator, wiki_file_index
+from pywikiaccessor.wiki_base_index import WikiTitleBaseIndex
 
 class TitleIndex (wiki_file_index.WikiFileIndex):
     def __init__(self, wikiAccessor):
@@ -56,12 +57,13 @@ class TitleIndexBuilder (wiki_iterator.WikiIterator):
     def preProcess(self):
         self.toTitleDict = {}
         self.toIdDict = {}
+        self.wikiTitleIndex = self.accessor.getIndex(WikiTitleBaseIndex)
             
     def clear(self):
         return 
 
     def processDocument(self, docId):
-        title = self.wikiIndex.getTitleArticleById(docId).lower().replace("_"," ")  
+        title = self.wikiTitleIndex.getTitleArticleById(docId).lower().replace("_"," ")  
         self.toTitleDict[docId] = title
         self.toIdDict[title] = docId
 

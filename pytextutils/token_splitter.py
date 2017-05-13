@@ -6,14 +6,22 @@ TYPE_WORD = 3
 TYPE_COMPLEX_TOKEN = 3
 BIG_CYR_LETTERS = "ЁЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ"
 BIG_LATIN_LETTERS = "QWERTYUIOPASDFGHJKLZXCVBNM"
+LITTLE_CYR_LETTERS = "ёйцукенгшщзхъфывапролджэячсмитьбю"
 ALL_CYR_LETTERS = "ёйцукенгшщзхъфывапролджэячсмитьбюЁЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ"
 DIGITS = '1234567890'
 SPACES = ' \r\n\t'
 SIGNS = '\'\\~!@#$%^&*()_+`"№;:?-={}[]<>/|—«».,„'
 
 class Token:
-    def __init__(self, token, spaceLeft, spaceRight, newlineLeft, newlineRight, tokenType, tokenNum):
+    def __init__(self, 
+                 token, 
+                 startPos, endPos, 
+                 spaceLeft, spaceRight, 
+                 newlineLeft, newlineRight, 
+                 tokenType, tokenNum):
         self.token = token
+        self.startPos = startPos
+        self.endPos = endPos 
         self.spaceLeft = spaceLeft
         self.spaceRight = spaceRight 
         self.newlineLeft = newlineLeft
@@ -55,7 +63,7 @@ class POSTagger:
     __morph = CachedPymorphyMorph()
     
     @staticmethod
-    def posTagging(self,tokens):
+    def posTagging(tokens):
         for i in range(0,len(tokens)):
             parse_result = POSTagger.__morph.parse(tokens[i].token)
             if(parse_result == None):
@@ -93,6 +101,8 @@ class TokenSplitter:
         self.tokenArray.append(
             Token(
                 self.curWord,
+                self.startPos,
+                self.endPos,
                 self.hasSpaceLeft,
                 self.hasSpaceRight,
                 self.hasNewlineLeft,
@@ -106,12 +116,15 @@ class TokenSplitter:
         self.wordArray = []
         self.tokenArray = []
         self.curWord = '' 
+        self.startPos = 0
+        self.endPos = 0
         self.hasSpaceLeft = False
         self.hasSpaceRight = False
         self.hasNewlineLeft = True
         self.hasNewlineRight = False
         self.tokenType = TYPE_TOKEN
         self.tokenNum = 0
+        pos = 0
         for letter in text:
             if (self.tokenType == TYPE_SIGN): # Add sign
                 if (letter in SPACES):
@@ -123,7 +136,9 @@ class TokenSplitter:
                 else:
                     self.hasNewlineRight = False
                 if (len(self.curWord)>0):
+                    self.endPos = pos-1
                     self.addToken()
+                self.startPos = pos
                 self.hasSpaceLeft = self.hasSpaceRight
                 self.hasNewlineLeft = self.hasNewlineRight
                 self.hasSpaceRight = False
@@ -135,7 +150,9 @@ class TokenSplitter:
                 if (letter == '\n'):
                     self.hasNewlineRight = True
                 if (len(self.curWord)>0):
+                    self.endPos = pos
                     self.addToken()
+                self.startPos = pos+1
                 self.hasSpaceLeft = self.hasSpaceRight
                 self.hasNewlineLeft = self.hasNewlineRight
                 self.hasSpaceRight = False
@@ -143,7 +160,11 @@ class TokenSplitter:
             elif (letter in SIGNS): # Create word with sign
                 self.hasSpaceRight = False
                 if (len(self.curWord)>0):
+                    self.endPos = pos-1
                     self.addToken()
+                    self.hasSpaceLeft = False 
+                    self.hasNewlineLeft = False 
+                self.startPos = pos    
                 self.curWord += letter
                 self.tokenType = TYPE_SIGN
                 self.hasSpaceRight = False
@@ -151,8 +172,10 @@ class TokenSplitter:
             else:                               #Add letter to word
                 self.curWord += letter
                 self.tokenType = TYPE_TOKEN
+            pos += 1    
 
         if (len(self.curWord)>0):
+            self.endPos = pos
             self.addToken()
         
         return self.wordArray

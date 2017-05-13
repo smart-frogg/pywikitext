@@ -7,8 +7,9 @@ from antlr4 import *
 #from antlrwiki.gen.wiki_markupParser import wiki_markupParser
 from abc import ABCMeta, abstractmethod
 from pywikiaccessor.wiki_categories import CategoryIndex
-
-REDIRECT = "REDIRECT"
+from pywikiaccessor.redirects_index import RedirectsIndex
+from pywikiaccessor.title_index import TitleIndex
+REDIRECT = "redirect"
 class DocumentTypeConfig:
     doctypes = None
     propsToDoctypes = {}
@@ -61,7 +62,7 @@ class StupidTemplateParser (WikiDocTypeParser):
         self.propertyPatterns = {}
         self.categoryLists = {}
         self.doctypes = DocumentTypeConfig(accessor.directory)
-        self.categoryIndex = accessor.categoryIndex
+        self.categoryIndex = accessor.getIndex(CategoryIndex)
         for prop in  DocumentTypeConfig.propsToDoctypes.keys():
             self.propertyPatterns[prop] = re.compile('\|[ \t\r\n]*'+prop+'[ \t\r\n]*=')
         for template in  DocumentTypeConfig.templatesToDoctypes.keys():    
@@ -176,7 +177,7 @@ class DocumentTypeIndex(wiki_file_index.WikiFileIndex):
     def getName(self):
         return "Document types"
 
-
+import os
 class DocumentTypeIndexBuilder (wiki_iterator.WikiIterator):
     
     def __init__(self, accessor):
@@ -201,20 +202,22 @@ class DocumentTypeIndexBuilder (wiki_iterator.WikiIterator):
     def preProcess(self):
         self.dataToTypes = {}
         self.dataToIds = {}
-        self.redirects = self.accessor.redirectIndex
-        self.titleIndex = self.accessor.titleIndex
+        self.redirects = self.accessor.getIndex(RedirectsIndex)
+        self.titleIndex = self.accessor.getIndex(TitleIndex)
         self.dataToIds[REDIRECT] = set()
              
     def clear(self):
-        return 
+        # os.remove(self.accessor.directory + 'IdToDocTypes.pcl')
+        # os.remove(self.accessor.directory + 'DocTypesToId.pcl')
+        pass
                                               
     def processDocument(self, docId):
         if self.redirects.isRedirect(docId):
             self.dataToTypes[docId] = REDIRECT
             self.dataToIds[REDIRECT].add(docId)
             return
-        title = self.accessor.titleIndex.getTitleById(docId)
-        text = self.accessor.baseIndex.getTextArticleById(docId)
+        title = self.titleIndex.getTitleById(docId)
+        text = self.wikiIndex.getTextArticleById(docId)
         #print(text)
         self.dataToTypes[docId] = self.docTypeParser.getDocType(docId,text,title)
         for docType in self.dataToTypes[docId]:
@@ -224,7 +227,7 @@ class DocumentTypeIndexBuilder (wiki_iterator.WikiIterator):
             
 
 #directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-#accessor =  wiki_accessor.WikiAccessorFactory.getAccessor(directory)
+#accessor =  wiki_accessor.WikiAccessor(directory)
 #titleIndex = accessor.titleIndex
 #docId = titleIndex.getIdByTitle('Википедия:Посольство')
 

@@ -2,9 +2,10 @@
 import pymysql
 from pytextutils.token_splitter import TokenSplitter, ALL_CYR_LETTERS
 from pywikiaccessor.wiki_tokenizer import WikiTokenizer
-from pywikiaccessor.wiki_accessor import WikiAccessorFactory
+from pywikiaccessor.wiki_accessor import WikiAccessor
 from pywikiaccessor.wiki_iterator import WikiIterator
 from pywikiaccessor.document_type import DocumentTypeIndex
+from pywikiaccessor.redirects_index import RedirectsIndex
 import re
 
 class HeadersBuilder (WikiIterator):
@@ -18,7 +19,7 @@ class HeadersBuilder (WikiIterator):
     def preProcess(self):
         self.dbConnection = pymysql.connect(host='localhost', port=3306, user='root', passwd='',charset='utf8', db='wikiparse')
         self.dbCursor = self.dbConnection.cursor()
-        self.redirects = self.accessor.redirectIndex 
+        self.redirects = self.accessor.getIndex(RedirectsIndex) 
         self.cleaner = WikiTokenizer()
         self.doctypeIndex = DocumentTypeIndex(accessor)
         self.headerTemplates = [
@@ -36,6 +37,8 @@ class HeadersBuilder (WikiIterator):
         self.addHeaderQuery = "INSERT INTO headers(text) VALUES (%s)"
         self.getHeaderIdQuery = "SELECT id FROM headers WHERE text LIKE %s"
         self.insertHeaderToDocQuery = "INSERT INTO header_to_doc(doc_id,header_id,pos_start,pos_end,type) VALUES "
+        self.isDocAlreadySaveQuery = "SELECT count(id) as cnt FROM `header_to_doc` WHERE doc_id = %s group by doc_id"
+
         self.queryElement = "(%s, %s, %s, %s, %s)"
         
         self.dbCursor.execute("SELECT * FROM headers ORDER BY id")
@@ -48,9 +51,16 @@ class HeadersBuilder (WikiIterator):
     def clear(self):
         pass
 
+    def isDocAlreadySave(self,docId):
+        self.dbCursor.execute(self.isDocAlreadySaveQuery,(docId))
+        count = self.dbCursor.fetchone()
+        if not count:
+            return False
+        return count[0] > 0
+    
     def getHeaderId(self,header):
         header = header.replace("ё","е")
-        header = header.replace("\\","")
+        header = header.replace("\\","").strip()
         header_id = self.headers.get(header,None)
         if not header_id:
             self.dbCursor.execute(self.addHeaderQuery,(header))
@@ -59,13 +69,16 @@ class HeadersBuilder (WikiIterator):
             header_id = self.dbCursor.fetchone()
             if not header_id:
                 print(header)
-            self.headers[header] = header_id[0]
+            else:
+                self.headers[header] = header_id[0]
         return header_id    
              
     def processDocument(self, docId):
         if self.redirects.isRedirect(docId):
             return
         if self.doctypeIndex.isDocType(docId,'wiki_stuff'):
+            return
+        if self.isDocAlreadySave(docId):
             return
         text = self.wikiIndex.getTextArticleById(docId).lower()
         headers = []
@@ -75,7 +88,8 @@ class HeadersBuilder (WikiIterator):
                 header = self.cleaner.clean(match.group(1))
                 if any(ch in ALL_CYR_LETTERS for ch in header):
                     header_id = self.getHeaderId(header)
-                    headers.append({'header':header_id,'type':htype,'position_start':match.end(),'position_match':match.start()})
+                    if header_id: 
+                        headers.append({'header':header_id,'type':htype,'position_start':match.end(),'position_match':match.start()})
             htype -= 1
         headers.sort(key=lambda header: header['position_match'])    
         query = []
@@ -96,21 +110,57 @@ class HeadersBuilder (WikiIterator):
         #else:
             # print (docId)
 class HeadersIndex:
-    def __init__(self):
+    def __init__(self,accessor):
         self.dbConnection = pymysql.connect(host='localhost', port=3306, user='root', passwd='',charset='utf8', db='wikiparse')
         self.dbCursor = self.dbConnection.cursor()         
-
+        self.getAllStatQuery = '''
+            SELECT headers.id as id, headers.text as text, count(`header_to_doc`.id) as cnt 
+            FROM `header_to_doc`, headers 
+            WHERE `header_to_doc`.header_id = headers.id 
+            GROUP BY headers.id 
+            ORDER BY cnt desc
+            '''
+        self.countHeadersForDocQuery = '''
+            SELECT `header_to_doc`.doc_id, count(`header_to_doc`.id) as cnt 
+            FROM `header_to_doc` 
+            GROUP BY `header_to_doc`.doc_id 
+            ORDER BY cnt desc
+            LIMIT 200
+            '''
+    def getCountHeadersForDoc(self, docIds):
+        #.format(','.join(str(x) for x in docIds)
+        self.dbCursor.execute(self.countHeadersForDocQuery)
+        res = []
+        for element in self.dbCursor.fetchall():
+            res.append ({'id': element[0],'cnt': element[1]})
+        return res                
+    def getAllStat(self, docIds):
+        self.dbCursor.execute(self.getAllStatQuery)
+        res = []
+        for element in self.dbCursor.fetchall():
+            res.append ({'id': element[0],'text': element[1],'cnt': element[2]})
+        return res    
+  
+      
 #regex1 = re.compile('\n[ \t]*==([^=]*)==[ \t\r]*\n')
 #text = " kdkd\n == kdkd==\n"
 #match = regex1.search(text)
 #print(match.end())
 directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-accessor = WikiAccessorFactory.getAccessor(directory)
+accessor = WikiAccessor(directory)
+docTypesIndex = DocumentTypeIndex(accessor)
+docIds = docTypesIndex.getDocsOfType("sciense")
 #titleIndex = accessor.titleIndex
 #doc_id = titleIndex.getIdByTitle("Пушкин, Александр Сергеевич")
-hb = HeadersBuilder(accessor)
+hb = HeadersBuilder(accessor,list(docIds))
 hb.build()
 #hb.preProcess()
-#hb.processDocument(doc_id)   
+#hb.processDocument(doc_id)
+hi = HeadersIndex(accessor)
+#hi.getCountHeadersForDoc(docIds)
+stat = hi.getAllStat(docIds)
+for s in stat:
+    print (s['text']+": "+str(s['cnt']))
+   
   
  

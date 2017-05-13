@@ -4,15 +4,38 @@ from abc import ABCMeta, abstractmethod
 from pytextutils.token_splitter import TokenSplitter, Token, TYPE_COMPLEX_TOKEN,\
     TYPE_SIGN
 
-
+def genComplexToken(tokens, start, end):
+    tokenTextArray = []
+    for i in range(start, end):
+        tokenTextArray.append(tokens[i].token)
+        
+    tokenText = ' '.join(tokenTextArray)        
+    token = Token(
+            tokenText,
+            tokens[start].startPos,
+            tokens[end-1].endPos,
+            tokens[start].spaceLeft,
+            tokens[end-1].spaceRight,
+            tokens[start].newlineLeft,
+            tokens[end-1].newlineRight,
+            TYPE_COMPLEX_TOKEN,
+            tokens[start].tokenNum)
+    token.setInternalTokens(tokens[start:end])
+    tokens[start] = token
+    for i in reversed(range(start+1, end)):
+        del tokens[i]
+    return token
+        
 class FormalGrammar(metaclass=ABCMeta):
     def __init__(self, grammar):
         self.grammar = grammar
         self.operations = {
             'exact': self.matchExact,
+            'maxlen': self.matchMaxLen,
             'newline': self.matchNewLine,
             'onlydigits': self.matchOnlyDigits,
             'onlybig': self.matchOnlyBig,
+            'startfrombig': self.matchStartFromBig,
             'frombigletter': self.matchFromBigLetter,
             
             'optional': self.matchOptional,
@@ -60,6 +83,10 @@ class FormalGrammar(metaclass=ABCMeta):
     def matchNewLine(self,param):
         result = ((param.lower() == 'left' and self.tokens[self.tokenUnify].newlineLeft) or 
                   (param.lower() == 'right' and self.tokens[self.tokenUnify].newlineRight) or
+                  (param.lower() == 'left only' and self.tokens[self.tokenUnify].newlineLeft 
+                                                and not self.tokens[self.tokenUnify].newlineRight) or 
+                  (param.lower() == 'right only' and self.tokens[self.tokenUnify].newlineRight
+                                                 and not self.tokens[self.tokenUnify].newlineLeft) or
                   (param.lower() == 'both' and self.tokens[self.tokenUnify].newlineRight 
                                            and self.tokens[self.tokenUnify].newlineLeft) or
                   (param.lower() == 'none' and not self.tokens[self.tokenUnify].newlineRight 
@@ -80,6 +107,18 @@ class FormalGrammar(metaclass=ABCMeta):
             self.tokenUnify += 1 
         return result
      
+    def matchStartFromBig(self,param):
+        result = (param == self.tokens[self.tokenUnify].fromBigLetter()) 
+        if result:
+            self.tokenUnify += 1 
+        return result
+
+    def matchMaxLen(self,param):
+        result = (param >= len(self.tokens[self.tokenUnify].token)) 
+        if result:
+            self.tokenUnify += 1 
+        return result
+    
     def matchFromBigLetter(self,param):
         result = (param == self.tokens[self.tokenUnify].fromBigLetter()) 
         if result:
@@ -174,8 +213,23 @@ class ExampleMatcher(FormalGrammar):
                  ]
              }
         ]
-        )  
-
+        )
+    def genToken(self,start,end):      
+        token = genComplexToken(self.tokens, start, end)
+        
+        numeratedExample = False
+        level = 0
+        for t in token.internalTokens:
+            if t.onlyDigits:
+                numeratedExample = True
+                level += 1
+            elif not t.tokenType == TYPE_SIGN:
+                break
+        token.setAdditionalInfo("example", 
+                                {'level': level,
+                                 'numerated_example':numeratedExample})   
+        self.tokenUnify = start
+        self.newTokens.append(token)
 
 class HeaderMatcher(FormalGrammar):
     def __init__(self):
@@ -185,18 +239,32 @@ class HeaderMatcher(FormalGrammar):
             { 'oneOf':
                 [   
                     {'group': [
-                        {'newLine':'Left','onlyDigits':True},
+                        {'newLine':'Left only','onlyDigits':True,'maxLen':1},
                         {'optional':
                             {'repeat': {'group':
-                                    [{'exact':'.'},{'onlyDigits':True}]}
+                                    [{'exact':'.', 'newLine':'None'},{'onlyDigits':True, 'newLine':'None'}]}
                              }
                         },
-                        {'optional':{'exact':'.'}},
+                        {'optional':{'exact':'.', 'newLine':'None'}},
+                        {'startFromBig':True},
                         {'allUntil':{'exp':{'newLine':'Left'},'include':False}}
                     ]},
                     {'group': [
-                        {'newLine':'Left','onlyBig':True},
-                        {'repeat': {'onlyBig':True, 'newLine':'None'}},
+                        { 'oneOf':
+                            [
+                                {'newLine':'Left','onlyBig':True},
+                                {'group': [
+                                    {'newLine':'Left only','onlyDigits':True,'maxLen':1},
+                                    {'optional':
+                                        {'repeat': {'group':
+                                                [{'exact':'.', 'newLine':'None'},{'onlyDigits':True, 'newLine':'None'}]}
+                                         }
+                                    },
+                                    {'optional':{'exact':'.', 'newLine':'None'}},       
+                                ]},
+                            ]
+                        }, 
+                        {'optional':{'repeat': {'onlyBig':True, 'newLine':'None'}}},
                         {'newLine':'Right','onlyBig':True},
                     ]},
                     {'newLine':'Both','exact':'Введение'},  
@@ -205,33 +273,31 @@ class HeaderMatcher(FormalGrammar):
                     {'group': [{'newLine':'Left','exact':'СПИСОК'},{'newLine':'Right','exact':'ЛИТЕРАТУРЫ'}]},  
                     {'newLine':'Both','exact':'Заключение'},  
                     {'newLine':'Both','exact':'ЗАКЛЮЧЕНИЕ'},  
+                    {'group': [
+                        { 'oneOf':
+                            [
+                                {'newLine':'Left','exact':"Приложение"},
+                                {'newLine':'Left','exact':"ПРИЛОЖЕНИЕ"},
+                            ]
+                        }, 
+                        {'optional':{'repeat': {'maxLen':1, 'newLine':'Right only'}}},
+                    ]},
                  ]
              }
         ]
         )  
     __popularHeaders = ['введение', 'заключение', 'список литературы', 'список использованных источников']      
     def genToken(self,start,end):
-        tokenText = []
-        for i in range(start, end):
-            tokenText.append(self.tokens[i].token)
-                
-        token = Token(
-                ' '.join(tokenText),
-                self.tokens[start].spaceLeft,
-                self.tokens[end].spaceRight,
-                self.tokens[start].newlineLeft,
-                self.tokens[end].newlineRight,
-                TYPE_COMPLEX_TOKEN,
-                self.tokens[start].tokenNum)
-        token.setInternalTokens(self.tokens[start:end])
-        popularHeader = tokenText.lower() in HeaderMatcher.__popularHeaders
+        token = genComplexToken(self.tokens, start, end)
+        
+        popularHeader = token.token.lower() in HeaderMatcher.__popularHeaders
         numeratedHeader = False
         if popularHeader:
             headerLevel = 1
         else:
             headerLevel = 0
             for t in token.internalTokens:
-                if t.onlyDigits:
+                if t.onlyDigits():
                     numeratedHeader = True
                     headerLevel += 1
                 elif not t.tokenType == TYPE_SIGN:
@@ -239,20 +305,16 @@ class HeaderMatcher(FormalGrammar):
             if headerLevel == 0:
                 headerLevel = 1   
         token.setAdditionalInfo("header", 
-                                {'is_populat_header':popularHeader, 
+                                {'is_popular_header':popularHeader, 
                                  'header_level': headerLevel,
                                  'numerated_header':numeratedHeader})   
-        self.tokens[start] = token
-        for i in reversed(range(start+1, end)):
-            del self.tokens[i]
         self.tokenUnify = start
         self.newTokens.append(token)
 
 #text = '''
-#Между тем, даже беглый взгляд на тексты новостей в СМИ свидетельствует о том, что как раз лексически полные именные группы выступают в них в качестве основного средства повторной номинации. 
-#2. Интродуктивная и идентифицирующая референция в новостных текстах
-#2.1. Типы референции и референциальных средств
-#Для референции к тем или иным референтам говорящий (автор) может использовать два основных типа референциальных средств: лексически полные и редуцированные. Как уже говорилось, к редуцированным средствам относят анафорическое местоимение и анафорический ноль.
+#снегонакопления.
+#ПРИЛОЖЕНИЕ 5
+#Классификация снега
 #'''  
             
 #ts = TokenSplitter()

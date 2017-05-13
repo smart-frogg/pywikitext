@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 import pymysql
 from pytextutils.token_splitter import TokenSplitter, Token, TYPE_TOKEN, POSTagger
-from pywikiaccessor.wiki_accessor import WikiAccessorFactory
+from pywikiaccessor.wiki_accessor import WikiAccessor
 from pywikiaccessor.wiki_iterator import WikiIterator
+from pywikiaccessor.wiki_plain_text_index import WikiPlainTextIndex
+from pywikiaccessor.redirects_index import RedirectsIndex
 import numpy as np
 import pytextutils.clustering as k_means
 
@@ -18,8 +20,8 @@ class VerbListBuilder (WikiIterator):
         self.dbConnection = pymysql.connect(host='localhost', port=3306, user='root', passwd='',charset='utf8', db='wikiparse')
         self.dbCursor = self.dbConnection.cursor()
         self.posTagger = POSTagger()
-        self.redirects = self.accessor.redirectIndex 
-        self.plainTextIndex = self.accessor.plainTextIndex
+        self.redirects = self.accessor.getIndex(RedirectsIndex) 
+        self.plainTextIndex = self.accessor.getIndex(WikiPlainTextIndex)
         self.clear()
         self.stems = {}
         self.wordSplitter = TokenSplitter()  
@@ -151,7 +153,7 @@ class VerbsListIndex:
         return k_means.clusterize(data,clusterCount, iterations,self.similarity)            
 
 directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-accessor = WikiAccessorFactory.getAccessor(directory)
+accessor = WikiAccessor(directory)
 verbsListIndex = VerbsListIndex()
 centers, verbsClusters = verbsListIndex.clusterizeVerbs(5, 2000)
 verbs = verbsListIndex.getVerbs()

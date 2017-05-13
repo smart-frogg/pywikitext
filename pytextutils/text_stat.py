@@ -1,12 +1,17 @@
 # -*- coding: utf-8 -*-
-from pytextutils.token_splitter import Token, TokenSplitter, POSTagger, TYPE_SIGN, TYPE_TOKEN, TYPE_COMPLEX_TOKEN, BIG_CYR_LETTERS
-from collections import Counter
-import pickle
+from pytextutils.token_splitter import Token, TokenSplitter, POSTagger, TYPE_SIGN, TYPE_TOKEN, TYPE_WORD,LITTLE_CYR_LETTERS, BIG_CYR_LETTERS
+import re
 import codecs
+import pickle
+import json
+from collections import Counter
+from pywikiaccessor.one_opened import OneOpened
 
-class TextCleaner:
-    @staticmethod
-    def __clearWraps(text):
+class TextCleaner(metaclass= OneOpened):
+    def __init__(self,directory):
+        self.directory = directory
+        self.__loadAbbrs()
+    def __clearWraps(self,text):
         ind = 0
         while ind < len(text):
             curStr = text[ind].strip()
@@ -17,27 +22,46 @@ class TextCleaner:
             text[ind] = curStr
             ind+=1
         return text 
-    @staticmethod
-    def __concatStrings(text):
+    __startStringRegex = re.compile('^[1234567890.)(\[\]]+', re.VERBOSE)
+
+    def __loadAbbrs(self):
+        with open(self.directory + 'abbrsConfig.json', encoding="utf8") as data_file:    
+            self.__abbrs = json.load(data_file,encoding="utf-8")
+ 
+    def __clearAbbr(self,text):
+        ind = 0
+        for curStr in text:
+            for abbr in self.__abbrs:
+                curStr = curStr.replace(abbr['short'],abbr['full'])
+            text[ind] = curStr
+            ind+=1                
+        return text  
+    
+    def __concatStrings(self,text):
         concatText = text[0]
+        onlyBig = all (not ch in LITTLE_CYR_LETTERS for ch in text[0])
         for ind in range (1,len(text)):
-            if (len(text[ind]) > 0 and len(concatText) > 0
+            curOnlyBig = all (not ch in LITTLE_CYR_LETTERS for ch in text[ind])
+            if ((len(text[ind]) > 0 and len(concatText) > 0) and
+                ((onlyBig and curOnlyBig) or
+                ((not TextCleaner.__startStringRegex.match(text[ind]))
                 and (not text[ind][0] in BIG_CYR_LETTERS) 
-                and (not concatText[-1] == '.')
+                and (not concatText[-1] == '.')))
                 ):  
                 concatText += ' ' + text[ind]
             else:
-                concatText += '\n' + text[ind]  
+                concatText += '\n' + text[ind]
+            onlyBig = curOnlyBig
         return concatText     
-        
-    @staticmethod    
-    def clean(text):
+    
+    def clean(self,text):
         if type(text) == str:
             workText = text.split("\n")
         else:
             workText = text
-        workText = TextCleaner.__clearWraps(workText)
-        workText = TextCleaner.__concatStrings(workText)
+        workText = self.__clearWraps(workText)
+        workText = self.__clearAbbr(workText)
+        workText = self.__concatStrings(workText)
         return workText
             
 class TextStat:
@@ -46,7 +70,7 @@ class TextStat:
         with codecs.open(self.file, 'r', "utf-8") as myfile:
             self.text=myfile.readlines()
         
-        TextCleaner.clearText(self.text)
+        self.text = TextCleaner.clean(self.text)
         self.tokenSplitter = TokenSplitter()
         self.posTagger = POSTagger()
         
@@ -54,7 +78,7 @@ class TextStat:
     def getStem(self,token):
         return token.POS[0]['normalForm'].replace('ё','е')
     
-    def buildPOSSurface(self, minWindowSize = 50, maxWindowSize = 1000):
+    def buildPOSSurface(self, minWindowSize = 10, maxWindowSize = 1000, step=5):
         self.tokenSplitter.split(self.text)
         tokens = self.tokenSplitter.getTokenArray()  
         self.posTagger.posTagging(tokens) 
@@ -89,20 +113,22 @@ class TextStat:
                 if token.token in signs:
                     parsedTokens.append(token)
                     
-            if (token.tokenType == TYPE_TOKEN and token.allCyr() and token.getBestPOS()):
+            if (token.tokenType in [TYPE_TOKEN,TYPE_WORD] and token.allCyr() and token.getBestPOS()):
                 parsedTokens.append(token)
 
         lastId = len(parsedTokens)-1
         
-        for windowSize in range(minWindowSize, maxWindowSize):  
+        for windowSize in range(minWindowSize, maxWindowSize,step):  
             self.data["DOTS"][windowSize] = [] 
             self.data["COMMAS"][windowSize] = [] 
             self.data["NOUNS"][windowSize] = [] 
             self.data["VERBS"][windowSize] = []
             self.data["ADJS"][windowSize] = []
+            self.data["FUNC"][windowSize] = []
             self.data["UNIQUE_NOUNS"][windowSize] = [] 
             self.data["UNIQUE_VERBS"][windowSize] = [] 
             self.data["UNIQUE_ADJS"][windowSize] = []           
+            self.data["UNIQUE_FUNC"][windowSize] = []
             for tokenId in range(0, lastId):
                 token = parsedTokens[tokenId]
                 if token.tokenType == TYPE_SIGN:
@@ -151,13 +177,25 @@ class TextStat:
                     self.data["NOUNS"][windowSize].append(sumNoun) 
                     self.data["VERBS"][windowSize].append(sumVerb)
                     self.data["ADJS"][windowSize].append(sumAdj)
+                    self.data["FUNC"][windowSize].append(sumFunc)
                     self.data["UNIQUE_NOUNS"][windowSize].append(len(setNoun)) 
                     self.data["UNIQUE_VERBS"][windowSize].append(len(setVerb)) 
                     self.data["UNIQUE_ADJS"][windowSize].append(len(setAdj)) 
+                    self.data["UNIQUE_FUNC"][windowSize].append(len(setFunc))
         with open(self.file +'-surface.pcl', 'wb') as f:
             pickle.dump(self.data, f, pickle.HIGHEST_PROTOCOL)
 
-#directory = "C:/WORK/science/onpositive_data/python/texts/"
+
+#directory = "C:/WORK/science/onpositive_data/python/"
+#tc = TextCleaner(directory)
+#tc1 = TextCleaner(directory)
+#print(tc1)
+#text = '''
+#рис.1 и т.д.
+#и пр.
+#'''
+#tc = TextCleaner(directory)
+#print(tc.clean(text))
 #file = "sule1.txt"
 #textStat = TextStat(directory+file)
 #print(textStat.text)
