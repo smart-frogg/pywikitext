@@ -72,14 +72,8 @@ class HeadersBuilder (WikiIterator):
             else:
                 self.headers[header] = header_id[0]
         return header_id    
-             
-    def processDocument(self, docId):
-        if self.redirects.isRedirect(docId):
-            return
-        if self.doctypeIndex.isDocType(docId,'wiki_stuff'):
-            return
-        if self.isDocAlreadySave(docId):
-            return
+    
+    def getAllHeadersForDoc(self, docId):         
         text = self.wikiIndex.getTextArticleById(docId).lower()
         headers = []
         htype = 6
@@ -91,7 +85,18 @@ class HeadersBuilder (WikiIterator):
                     if header_id: 
                         headers.append({'header':header_id,'type':htype,'position_start':match.end(),'position_match':match.start()})
             htype -= 1
-        headers.sort(key=lambda header: header['position_match'])    
+        headers.sort(key=lambda header: header['position_match'])
+        return headers
+        
+    def processDocument(self, docId):
+        if self.redirects.isRedirect(docId):
+            return
+        if self.doctypeIndex.isDocType(docId,'wiki_stuff'):
+            return
+        if self.isDocAlreadySave(docId):
+            return
+        text = self.wikiIndex.getTextArticleById(docId)
+        headers = self.getAllHeadersForDoc(docId)    
         query = []
         params = []            
         for header_id in range(0,len(headers)-1):
