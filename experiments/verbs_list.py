@@ -1,6 +1,48 @@
 # -*- coding: utf-8 -*-
+'''
+Модуль для построения списка глаголов
+
+Требует:
++ индекс очищенных от вики-разметки текстов статей
++ индекс редиректов
+
+Схема базы
+
+DROP TABLE IF EXISTS `headers`;
+CREATE TABLE IF NOT EXISTS `headers` (
+`id` int(11) NOT NULL,
+  `text` varchar(1000) CHARACTER SET utf8 NOT NULL
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS `header_to_doc`;
+CREATE TABLE IF NOT EXISTS `header_to_doc` (
+`id` int(11) NOT NULL,
+  `doc_id` int(11) NOT NULL,
+  `header_id` int(11) NOT NULL,
+  `pos_start` mediumint(9) NOT NULL,
+  `pos_end` mediumint(9) NOT NULL,
+  `type` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+ALTER TABLE `headers`
+ ADD PRIMARY KEY (`id`);
+
+ALTER TABLE `header_to_doc`
+ ADD PRIMARY KEY (`id`), ADD KEY `doc_id` (`doc_id`), ADD KEY `header_id` (`header_id`), ADD KEY `pos_start` (`pos_start`);
+
+--
+-- AUTO_INCREMENT для таблицы `headers`
+--
+ALTER TABLE `headers`
+MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=2;
+--
+-- AUTO_INCREMENT для таблицы `header_to_doc`
+--
+ALTER TABLE `header_to_doc`
+MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+'''
 import pymysql
-from pytextutils.token_splitter import TokenSplitter, Token, TYPE_TOKEN, POSTagger
+from pytextutils.token_splitter import TokenSplitter, TYPE_TOKEN, POSTagger
 from pywikiaccessor.wiki_accessor import WikiAccessor
 from pywikiaccessor.wiki_iterator import WikiIterator
 from pywikiaccessor.wiki_plain_text_index import WikiPlainTextIndex
@@ -8,38 +50,59 @@ from pywikiaccessor.redirects_index import RedirectsIndex
 import numpy as np
 import pytextutils.clustering as k_means
 
+# Класс для построения списка глаголов
 class VerbListBuilder (WikiIterator):
+    # Порог точности определения части речи
     __TRESHOLD = 0.0005
-    def __init__(self, accessor, docIds = None):
-        super(VerbListBuilder, self).__init__(accessor, 1000, docIds)
+    
+    # Инициализация. Параметры:
+    # accessor - класс, который содержит конфигурацию для доступа к индексам дампа Википедии (см. модуль wiki_accessor)
+    # docIds = None - список обрабатываемых документов, если надо обработать не все
+    # prefix='' - префикс файлов индекса (или таблиц индекса)
+    def __init__(self, accessor, docIds = None, prefix=''):
+        super(VerbListBuilder, self).__init__(accessor, 1000, docIds,prefix)
 
+    # Функция сохранения данных, вызывается каждые N записей
     def processSave(self,articlesCount):
         pass
-   
+    
+    # Функция подготовки к построению индекса
     def preProcess(self):
+        # коннект к базе, параметры надо вынести в конфиг и получать через accessor
         self.dbConnection = pymysql.connect(host='localhost', port=3306, user='root', passwd='',charset='utf8', db='wikiparse')
+        # курсор коннекта для запросов
         self.dbCursor = self.dbConnection.cursor()
+        # класс для получения
         self.posTagger = POSTagger()
-        self.redirects = self.accessor.getIndex(RedirectsIndex) 
+        # индекс редиректов
+        self.redirects = self.accessor.getIndex(RedirectsIndex)
+        # индекс текстов статей, очищенных от вики-разметки 
         self.plainTextIndex = self.accessor.getIndex(WikiPlainTextIndex)
         self.clear()
+        # список начальных форм глаголов
         self.stems = {}
-        self.wordSplitter = TokenSplitter()  
+        # разделялка на слова
+        self.wordSplitter = TokenSplitter()
+        # запросы  
         self.addStemQuery = "INSERT INTO verbs(stem) VALUES (%s)"
         self.getStemIdQuery = "SELECT id FROM verbs WHERE stem LIKE %s"
         self.insertVerbToDocQuery = "INSERT INTO verb_to_doc(doc_id,verb_id,is_ambig,position,score) VALUES "
         self.queryElement = "(%s, %s, %s, %s, %s)"
         
+        # выбираем те записи, которые уже есть
         self.dbCursor.execute("SELECT * FROM verbs ORDER BY id")
         for stem in self.dbCursor.fetchall():
             self.stems[stem[1]] = stem[0] 
     
+    # выполняется после завершения построения
     def postProcess(self):
         pass
            
+    # очистка индекса
     def clear(self):
         pass
 
+    # определяет или генерирует идентификатор словарной формы глагола
     def getStemId(self,stem):
         stem = stem.replace("ё","е")
         stem_id = self.stems.get(stem,None)
@@ -53,16 +116,22 @@ class VerbListBuilder (WikiIterator):
             self.stems[stem] = stem_id[0]
         return stem_id    
              
+    # обработка документа     
     def processDocument(self, docId):
+        # если редирект, то пропускаем
         if self.redirects.isRedirect(docId):
             return
+        # берем очищенный текст
         cleanText = self.plainTextIndex.getTextById(docId)
         if cleanText == None:
             return
         verbs = []
+        # делим текст на токены
         self.wordSplitter.split(cleanText)
         tokens = self.wordSplitter.getTokenArray()
-        self.posTagger.posTagging(tokens)  
+        # помечаем токены частями речи
+        self.posTagger.posTagging(tokens)
+        # выбираем те токены, которые представляют глаголы  
         for token in tokens:
             if (token.tokenType == TYPE_TOKEN and not token.hasDigits()):
                 #if (not token.allCyr()) or token.token.lower() in self.notAVerbs:
@@ -84,6 +153,7 @@ class VerbListBuilder (WikiIterator):
                 if(isVerb):
                     verb = {"stem": self.getStemId(normalForm), "is_ambig": isOnlyVerb, "pos": token.tokenNum, "score": verbScore}
                     verbs.append(verb)
+        # составляем запрос, который добавит все наши глаголы в базу            
         query = []
         params = []            
         for verb in verbs:
@@ -93,11 +163,15 @@ class VerbListBuilder (WikiIterator):
             params.append(verb["is_ambig"])
             params.append(verb["pos"])
             params.append(verb["score"])
+        
+        # выполняем запрос    
         if len(query)>0 :
             self.dbCursor.execute(self.insertVerbToDocQuery+",".join(query),params)
             self.dbConnection.commit()
         #else:
             # print (docId)
+
+# индекс для доступа к спискам глаголов            
 class VerbsListIndex:
     def __init__(self):
         self.dbConnection = pymysql.connect(host='localhost', port=3306, user='root', passwd='',charset='utf8', db='wikiparse')

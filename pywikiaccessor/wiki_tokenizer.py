@@ -1,67 +1,10 @@
 # -*- coding: utf-8 -*-
+# Модуль разбора Википедии на основе грамматики pyparsing, а также очистка текстов от вики-разметки
 import re
 from pyparsing import Literal,Word,ZeroOrMore,Forward,nums,makeHTMLTags,SkipTo,oneOf,Group,CharsNotIn,htmlComment,QuotedString,OneOrMore,nestedExpr,delimitedList,Optional
 
-class WikiLink:
-    def __init__(self,name,fields):
-        self.name = name
-        self.fields = []
-        for m in fields:
-            if(m != '|'):
-                self.fields.append(m)    
-    def __str__(self):
-        res = self.name+": ["
-        res_list = []
-        for m in self.fields:
-            res_list.append(m)
-        res += ", ".join(res_list)+"]"    
-        return  res
-    def __repr__(self):
-        return "WikiLink("+self.__str__()+")"
-    
-class WikiTemplate:
-    def __init__(self,name,fields):
-        self.name = name
-        self.fields = []
-        for m in fields:
-            if len(m) >= 3:
-                if len(m) == 3:
-                    value = m[2]
-                else:
-                    value = m[2:]     
-                    
-                self.fields.append({
-                    "name":m[0].strip().lower(),
-                    "value":value
-                    })
-            else:
-                if len(m) == 2:
-                    self.fields.append({
-                        "name":m[0]
-                        })
-                else:
-                    self.fields.append({
-                        "value":m[0]
-                        })
-            
-    def getTemplateName(self):
-        return self.name 
-    
-    def getPropertiesNames(self):
-        res = []
-        for m in self.fields:
-            if m.get("name",None) :
-                res.append(m["name"])
-        return res  
-    def __str__(self):
-        res = self.name+": ["
-        res_list = []
-        for m in self.fields:
-            res_list.append(m.get("name","None")+": "+str(m.get("value","None")))
-        res += ", ".join(res_list)+"]"    
-        return  res
-    def __repr__(self):
-        return "WikiTemplate("+self.__str__()+")"
+
+
         
 class WikiTokenizer:
     def genTemplate(self,s,l,t):
@@ -181,12 +124,67 @@ def genLink(s,l,t):
     lst = list(t)
     return WikiLink(lst[0][0],lst[0][1:])
 
-N_name = CharsNotIn("{}|[]")
-N_link = nestedExpr( 
-    opener="[[", 
-    closer="]]", 
-    content= N_name + Optional("|" + delimitedList(CharsNotIn("[]"),delim="|"))
-    ).setParseAction( genLink )
+class WikiLink:
+    def __init__(self,name,fields):
+        self.name = name
+        self.fields = []
+        for m in fields:
+            if(m != '|'):
+                self.fields.append(m)    
+    def __str__(self):
+        res = self.name+": ["
+        res_list = []
+        for m in self.fields:
+            res_list.append(m)
+        res += ", ".join(res_list)+"]"    
+        return  res
+    def __repr__(self):
+        return "WikiLink("+self.__str__()+")"
+    
+class WikiTemplate:
+    def __init__(self,name,fields):
+        self.name = name
+        self.fields = []
+        for m in fields:
+            if len(m) >= 3:
+                if len(m) == 3:
+                    value = m[2]
+                else:
+                    value = m[2:]     
+                    
+                self.fields.append({
+                    "name":m[0].strip().lower(),
+                    "value":value
+                    })
+            else:
+                if len(m) == 2:
+                    self.fields.append({
+                        "name":m[0]
+                        })
+                else:
+                    self.fields.append({
+                        "value":m[0]
+                        })
+            
+    def getTemplateName(self):
+        return self.name 
+    
+    def getPropertiesNames(self):
+        res = []
+        for m in self.fields:
+            if m.get("name",None) :
+                res.append(m["name"])
+        return res  
+    def __str__(self):
+        res = self.name+": ["
+        res_list = []
+        for m in self.fields:
+            res_list.append(m.get("name","None")+": "+str(m.get("value","None")))
+        res += ", ".join(res_list)+"]"    
+        return  res
+    def __repr__(self):
+        return "WikiTemplate("+self.__str__()+")"
+    
     
     
 #data = N_link.parseString("[[минерал|минеральные материалы]]")

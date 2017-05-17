@@ -3,6 +3,13 @@ import codecs
 import pickle
 import xml.sax
 
+'''
+SAX-парсер xml-дампа Википедии
+Используется при построении базового индекса
+Пример использования:
+directory = "C:\\WORK\\science\\onpositive_data\\python\\"
+main('articles.xml', directory)
+'''
 
 class XMLWikiParser(xml.sax.ContentHandler):
     
@@ -79,6 +86,3 @@ def main(wikiDumpFile, directory):
     xml.sax.parse(inputXml, XMLWikiParser(directory))
     print('Finish!')
 
-#directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-#main('30000.xml', 'title_and_id.dat', 'id_and_shift.dat', 'indexed_wiki.dat')
-#main('articles.xml', directory)

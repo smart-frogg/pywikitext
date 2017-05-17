@@ -1,15 +1,68 @@
 # -*- coding: utf-8 -*-
+'''
+ Модуль индекса типов документов
+ 
+ Индекс требует:
+ + базовый индекс доступа к сырым статьям
+ + индекс редиректов
+ + индекс категорий
+ + конфигурационный файл DocumentTypeConfig.json
+
+ Примеры использования:
+
+Инициализация, чтобы примеры работали: 
+directory = "C:\\WORK\\science\\onpositive_data\\python\\"
+accessor =  wiki_accessor.WikiAccessor(directory)
+ 
+Построение:
+bld = DocumentTypeIndexBuilder(accessor)
+bld.build()
+
+Проверка, что строится для одной статьи:
+titleIndex = accessor.getIndex(TitleIndex)
+docId = titleIndex.getIdByTitle('devil may cry 3: dante’s awakening')
+bld = DocumentTypeIndexBuilder(accessor)
+bld.preProcess()
+bld.processDocument(docId)
+print(bld.dataToTypes)
+
+Получение информации о типах документов для страниц: 
+index = DocumentTypeIndex(accessor)
+print(index.getDocTypeById(docId))
+print(index.getDocTypeById(titleIndex.getIdByTitle("Арцебарский, Анатолий Павлович")))
+print(index.getDocTypeById(titleIndex.getIdByTitle("Санкт-Петербург")))
+print(index.getDocTypeById(titleIndex.getIdByTitle('Великая теорема Ферма')))
+
+Получение всех статей одного типа:
+pages =index.getDocsOfType('event')
+
+Вывод документов, у которых не определился тип:
+dWt = index.getDocsWithoutType()
+print(len(dWt))
+for docId in dWt:
+    print(titleIndex.getTitleById(docId))
+
+Вывод количества документов для каждого типа:
+DocumentTypeConfig(directory)
+for docType in DocumentTypeConfig.doctypeList:
+    r = index.getDocsOfType(docType)
+    print(docType+": "+str(len(r)))
+'''
+
 import pickle
 import json
 import re
-from antlr4 import *
+#from antlr4 import *
 #from antlrwiki.gen.wiki_markupLexer import wiki_markupLexer
 #from antlrwiki.gen.wiki_markupParser import wiki_markupParser
 from abc import ABCMeta, abstractmethod
 from pywikiaccessor.wiki_categories import CategoryIndex
 from pywikiaccessor.redirects_index import RedirectsIndex
 from pywikiaccessor.title_index import TitleIndex
+
 REDIRECT = "redirect"
+
+# Класс для доступа к конфигу
 class DocumentTypeConfig:
     doctypes = None
     propsToDoctypes = {}
@@ -51,11 +104,13 @@ class DocumentTypeConfig:
     def getDocTypeByPrefix(prefix):
         return DocumentTypeConfig.propertiesToDoctypes.get(prefix)
 
+# Интерфейс определителя типа документа
 class WikiDocTypeParser(metaclass=ABCMeta):
     @abstractmethod
     def getDocType(self,text):
         pass
-                   
+
+# Упрощенный способ определения типа документа, парсер просто ищет вхождения соответствующих кострукций для поиска шаблонов и свойств                   
 class StupidTemplateParser (WikiDocTypeParser):
     def __init__(self, accessor):
         self.templatePatterns = {}
@@ -99,7 +154,8 @@ class StupidTemplateParser (WikiDocTypeParser):
                 result.add(DocumentTypeConfig.prefixesToDoctypes[prefix])
         return result    
         
-'''    
+'''
+# Определитель типа на основе парсера ANTLR    
 class ANTLRTemplateParser (WikiDocTypeParser):
     def __init__(self,directory):
         self.TERMINAL_ELEMENT = "<class 'antlr4.tree.Tree.TerminalNodeImpl'>"
@@ -145,7 +201,8 @@ class ANTLRTemplateParser (WikiDocTypeParser):
         return result        
 '''
                                     
-from pywikiaccessor import wiki_iterator,wiki_accessor, wiki_file_index
+from pywikiaccessor import wiki_iterator,wiki_file_index
+# Индекс типов документов
 class DocumentTypeIndex(wiki_file_index.WikiFileIndex):
     def __init__(self, wikiAccessor):
         super(DocumentTypeIndex, self).__init__(wikiAccessor)
@@ -178,18 +235,13 @@ class DocumentTypeIndex(wiki_file_index.WikiFileIndex):
     def getName(self):
         return "Document types"
 
-import os
+# Билдер индекса типов документов
 class DocumentTypeIndexBuilder (wiki_iterator.WikiIterator):
     
     def __init__(self, accessor):
         self.CODE = 'utf-8'
         self.docTypeParser = StupidTemplateParser(accessor)
-
-        #self.doctypes = DocumentTypeConfig(accessor.directory)
         super(DocumentTypeIndexBuilder, self).__init__(accessor, 10000)
-        #with open(self.accessor.directory + 'DocumentTypeConfig.json', encoding="utf8") as data_file:    
-        #    self.doctypes = json.load(data_file)
-
 
     def processSave(self,articlesCount):
         return
@@ -227,62 +279,3 @@ class DocumentTypeIndexBuilder (wiki_iterator.WikiIterator):
             self.dataToIds[docType].add(docId)
             
 
-#directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-#accessor =  wiki_accessor.WikiAccessor(directory)
-
-#titleIndex = accessor.getIndex(TitleIndex)
-#docId = titleIndex.getIdByTitle('devil may cry 3: dante’s awakening')
-#docId = titleIndex.getIdByTitle('Age of Chivalry')
-#docId = titleIndex.getIdByTitle('divinity ii: ego draconis')
-
-#bld = DocumentTypeIndexBuilder(accessor)
-#bld.preProcess()
-#bld.processDocument(docId)
-#print(bld.dataToTypes)
-#bld.build() 
-  
-#print(titleIndex.getTitleById(5243160))
-#bld = MoscowSearcher(accessor)
-#bld.build()
-#print(bld.count)     
-
-#index = DocumentTypeIndex(accessor)
-#print(index.getDocTypeById(docId))
-#print(index.getDocTypeById(titleIndex.getIdByTitle("Арцебарский, Анатолий Павлович")))
-#print(index.getDocTypeById(titleIndex.getIdByTitle("Пушкин, Александр Сергеевич")))
-#print(index.getDocTypeById(titleIndex.getIdByTitle("Хрущёв, Никита Сергеевич")))
-#print(index.getDocTypeById(titleIndex.getIdByTitle("Бегичев, Матвей Семёнович")))
-#print(index.getDocTypeById(titleIndex.getIdByTitle("Санкт-Петербург")))
-#print(index.getDocTypeById(titleIndex.getIdByTitle("Екатеринбург")))
-#print(index.getDocTypeById(titleIndex.getIdByTitle('Великая теорема Ферма')))
-
-#print(index.getDocTypeById(titleIndex.getIdByTitle("категория:москва")))
-#print(index.getDocTypeById(10989))
-#print(titleIndex.getTitleById(10989))
-#print(accessor.redirectIndex.getRedirect(titleIndex.getIdByTitle("Москва (город)")))
-
-#dWt = index.getDocsWithoutType()
-#print(len(dWt))
-#DocumentTypeConfig(directory)
-#for docType in DocumentTypeConfig.doctypeList:
-#    r = index.getDocsOfType(docType)
-#    print(docType+": "+str(len(r)))
-#for docId in dWt:
-#    print(titleIndex.getTitleById(docId))
-
-#bld = DocumentTypeIndexBuilder(accessor)
-#bld.build()
-#titleIndex = accessor.titleIndex
-#
-
-#bld.preProcess()
-#doc_id = titleIndex.getIdByTitle("категория:москва") 
-#bld.processDocument(doc_id)                
-#print(bld.data)
-
-#doc_id = titleIndex.getIdByTitle("категория:министры культуры и туризма азербайджана") 
-#bld.processDocument(doc_id)                
-#print(bld.data)
-#doc_id = titleIndex.getIdByTitle("Барнаул")
-#bld.processDocument(doc_id)                
-#print(bld.data)

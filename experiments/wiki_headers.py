@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 import pymysql
-from pytextutils.token_splitter import TokenSplitter, ALL_CYR_LETTERS
+from pytextutils.token_splitter import ALL_CYR_LETTERS
 from pywikiaccessor.wiki_tokenizer import WikiTokenizer
 from pywikiaccessor.wiki_accessor import WikiAccessor
 from pywikiaccessor.wiki_iterator import WikiIterator
-from pywikiaccessor.wiki_base_index import WikiBaseIndex
 from pywikiaccessor.wiki_file_index import WikiFileIndex
 from pywikiaccessor.document_type import DocumentTypeIndex
 from pywikiaccessor.redirects_index import RedirectsIndex
 import re
 import pickle
 
+# Класс для выделения markdown-заголовков в тексте
 class HeadersExtractor:
     def __init__(self,headerRenumerer):
         self.cleaner = WikiTokenizer()
@@ -39,6 +39,7 @@ class HeadersExtractor:
         headers.sort(key=lambda header: header['position_match'])
         return headers
 
+# Билдер файлового индекса заголовков
 class HeadersFileBuilder (WikiIterator):
     def __init__(self, accessor, docIds = None, prefix =''):
         super(HeadersFileBuilder, self).__init__(accessor, 1000, docIds, prefix)
@@ -89,7 +90,8 @@ class HeadersFileBuilder (WikiIterator):
             if not self.headerDocuments.get(h['header'],None):
                 self.headerDocuments[h['header']] = []
             self.headerDocuments[h['header']].append(docId)
-             
+
+# Файловый индекс заголовков             
 class HeadersFileIndex(WikiFileIndex):
     def __init__(self, wikiAccessor,prefix =''):
         super(HeadersFileIndex, self).__init__(wikiAccessor,prefix)
@@ -115,6 +117,45 @@ class HeadersFileIndex(WikiFileIndex):
         return HeadersFileBuilder(self.accessor,self.prefix)
     def getName(self):
         return "headers"            
+
+'''
+Билдер индекса заголовков, хранящийся в базе
+
+Требует:
++ базовый индекс сырых текстов Википедии
++ индекс типов документов
++ индекс редиректов
+
+Схема:
+
+DROP TABLE IF EXISTS `verbs`;
+CREATE TABLE IF NOT EXISTS `verbs` (
+`id` int(11) NOT NULL,
+  `stem` varchar(200) CHARACTER SET utf8 NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS `verb_to_doc`;
+CREATE TABLE IF NOT EXISTS `verb_to_doc` (
+`id` int(11) NOT NULL,
+  `doc_id` int(11) NOT NULL,
+  `verb_id` int(11) NOT NULL,
+  `is_ambig` tinyint(1) NOT NULL,
+  `position` mediumint(9) NOT NULL,
+  `score` float NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+ALTER TABLE `verbs`
+ ADD PRIMARY KEY (`id`), ADD UNIQUE KEY `id` (`id`);
+
+ALTER TABLE `verb_to_doc`
+ ADD PRIMARY KEY (`id`), ADD KEY `doc_id` (`doc_id`), ADD KEY `verb_id` (`verb_id`);
+
+ALTER TABLE `verbs`
+MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `verb_to_doc`
+MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+'''
 
 class HeadersDBBuilder (WikiIterator):
     def __init__(self, accessor, docIds = None):
@@ -148,7 +189,8 @@ class HeadersDBBuilder (WikiIterator):
            
     def clear(self):
         pass
-
+    
+    # Проверяем, был ли документ обработан ранее
     def isDocAlreadySave(self,docId):
         self.dbCursor.execute(self.isDocAlreadySaveQuery,(docId))
         count = self.dbCursor.fetchone()
@@ -156,6 +198,7 @@ class HeadersDBBuilder (WikiIterator):
             return False
         return count[0] > 0
     
+    # Определяет или генерирует идентификатор заголовка
     def getHeaderId(self,header):
         header = header.replace("ё","е")
         header = header.replace("\\","").strip()
@@ -170,16 +213,24 @@ class HeadersDBBuilder (WikiIterator):
             else:
                 self.headers[header] = header_id[0]
         return header_id    
-        
+    
+    # Обработка документа    
     def processDocument(self, docId):
+        #страницы-редиректы не обрабатываем
         if self.redirects.isRedirect(docId):
             return
+        # служебные страницы не обрабатываем
         if self.doctypeIndex.isDocType(docId,'wiki_stuff'):
             return
+        # уже сохраненные не обрабатываем
         if self.isDocAlreadySave(docId):
             return
+        # получаем текст статьи
         text = self.wikiIndex.getTextArticleById(docId)
-        headers = self.headersExtractor.getHeadersForDoc(docId,text)    
+        # получаем из текста заголовки в виде структурок
+        headers = self.headersExtractor.getHeadersForDoc(docId,text)
+        
+        # формируем запрос    
         query = []
         params = []            
         for header_id in range(0,len(headers)-1):
@@ -192,6 +243,7 @@ class HeadersDBBuilder (WikiIterator):
             else:
                 params.append(len(text))
             params.append(headers[header_id]["type"])
+        # Выполняем запрос    
         if len(query)>0 :
             self.dbCursor.execute(self.insertHeaderToDocQuery+",".join(query),params)
             self.dbConnection.commit()
