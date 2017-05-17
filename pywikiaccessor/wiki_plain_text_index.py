@@ -44,12 +44,12 @@ class WikiPlainTextBuilder (wiki_iterator.WikiIterator):
 
     def postProcess(self):
         self.textFile.close()
-        with open(self.accessor.directory + 'plainTextIndex.pcl', 'wb') as f:
+        with open(self.getFullFileName('plainTextIndex.pcl'), 'wb') as f:
             pickle.dump(self.textDict, f, pickle.HIGHEST_PROTOCOL)
 
 
     def preProcess(self):
-        self.textFile = open(self.accessor.directory+"plainText.dat", 'wb')
+        self.textFile = open(self.getFullFileName("plainText.dat"), 'wb')
         self.tokenizer = wiki_tokenizer.WikiTokenizer()
         self.textShift = 0
         self.textDict = {}

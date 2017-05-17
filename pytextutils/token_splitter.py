@@ -65,6 +65,8 @@ class POSTagger:
     @staticmethod
     def posTagging(tokens):
         for i in range(0,len(tokens)):
+            if tokens[i].tokenType == TYPE_SIGN:
+                continue
             parse_result = POSTagger.__morph.parse(tokens[i].token)
             if(parse_result == None):
                 continue
@@ -78,7 +80,7 @@ class POSTagger:
                 if (res.tag.POS == 'VERB'):
                     if tokens[i].token in POSTagger.__notAVerbs:
                         continue
-                    if i > 0 and tokens[i-1].getBestPOS() == 'PREP':
+                    if i > 0 and tokens[i-1].tokenType != TYPE_SIGN and tokens[i-1].getBestPOS() == 'PREP':
                         continue
                     if i > 0 and tokens[i].token[0] in BIG_CYR_LETTERS and not tokens[i-1].token == '.':
                         continue

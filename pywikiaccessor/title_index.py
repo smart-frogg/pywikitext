@@ -11,14 +11,14 @@ class TitleIndex (wiki_file_index.WikiFileIndex):
         
     
     def getDictionaryFiles(self): 
-        return ['IdToTitleIndex','TitleToIdIndex']
+        return ['title_IdToTitleIndex','title_TitleToIdIndex']
                         
     def getTitleById(self, ident):
-        return self.dictionaries['IdToTitleIndex'].get(ident, None)
+        return self.dictionaries['title_IdToTitleIndex'].get(ident, None)
     
     def getIdByTitle(self, title):
         key = title.lower().replace("_"," ")
-        return self.dictionaries['TitleToIdIndex'].get(key, None)
+        return self.dictionaries['title_TitleToIdIndex'].get(key, None)
     
     def findArticleId(self,title):
         res = self.getIdByTitle(title)
@@ -49,9 +49,9 @@ class TitleIndexBuilder (wiki_iterator.WikiIterator):
         return
 
     def postProcess(self):
-        with open(self.accessor.directory + 'IdToTitleIndex.pcl', 'wb') as f:
+        with open(self.getFullFileName('title_IdToTitleIndex.pcl'), 'wb') as f:
             pickle.dump(self.toTitleDict, f, pickle.HIGHEST_PROTOCOL)
-        with open(self.accessor.directory + 'TitleToIdIndex.pcl', 'wb') as f:
+        with open(self.getFullFileName('title_TitleToIdIndex.pcl'), 'wb') as f:
             pickle.dump(self.toIdDict, f, pickle.HIGHEST_PROTOCOL)
 
     def preProcess(self):

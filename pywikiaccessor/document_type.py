@@ -71,6 +71,7 @@ class StupidTemplateParser (WikiDocTypeParser):
             if not self.categoryLists.get(DocumentTypeConfig.categoriesToDoctypes[category],None):  
                 self.categoryLists[DocumentTypeConfig.categoriesToDoctypes[category]] = set() 
             catId = self.categoryIndex.getIdByTitle(category)    
+            self.categoryLists[DocumentTypeConfig.categoriesToDoctypes[category]].add(catId)
             self.categoryLists[DocumentTypeConfig.categoriesToDoctypes[category]].update(self.categoryIndex.getSubCatAsSet(catId))
   
     def getDocType(self,docId,text,title):
@@ -194,9 +195,9 @@ class DocumentTypeIndexBuilder (wiki_iterator.WikiIterator):
         return
 
     def postProcess(self):
-        with open(self.accessor.directory + 'IdToDocTypes.pcl', 'wb') as f:
+        with open(self.getFullFileName('IdToDocTypes.pcl'), 'wb') as f:
             pickle.dump(self.dataToTypes, f, pickle.HIGHEST_PROTOCOL)
-        with open(self.accessor.directory + 'DocTypesToId.pcl', 'wb') as f:
+        with open(self.getFullFileName('DocTypesToId.pcl'), 'wb') as f:
             pickle.dump(self.dataToIds, f, pickle.HIGHEST_PROTOCOL)
 
     def preProcess(self):
@@ -228,8 +229,11 @@ class DocumentTypeIndexBuilder (wiki_iterator.WikiIterator):
 
 #directory = "C:\\WORK\\science\\onpositive_data\\python\\"
 #accessor =  wiki_accessor.WikiAccessor(directory)
-#titleIndex = accessor.titleIndex
-#docId = titleIndex.getIdByTitle('Википедия:Посольство')
+
+#titleIndex = accessor.getIndex(TitleIndex)
+#docId = titleIndex.getIdByTitle('devil may cry 3: dante’s awakening')
+#docId = titleIndex.getIdByTitle('Age of Chivalry')
+#docId = titleIndex.getIdByTitle('divinity ii: ego draconis')
 
 #bld = DocumentTypeIndexBuilder(accessor)
 #bld.preProcess()

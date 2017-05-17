@@ -3,10 +3,11 @@ from pywikiaccessor.wiki_base_index import WikiBaseIndex
 from abc import ABCMeta, abstractmethod
 
 class WikiIterator(metaclass=ABCMeta):
-    def __init__(self, accessor, fileCount, docList = None):
+    def __init__(self, accessor, fileCount, docList = None, prefix = ''):
         self.accessor = accessor
         self.fileCount = fileCount
         self.docList = docList
+        self.prefix = prefix
         self.wikiIndex = self.accessor.getIndex(WikiBaseIndex)
 
     def build (self, start=0):
@@ -30,7 +31,9 @@ class WikiIterator(metaclass=ABCMeta):
         print("Processed "+str(articlesCount))
         self.save(articlesCount)
         self.postProcess()
-                
+    
+    def getFullFileName(self,fileName):
+        return self.accessor.directory + self.prefix + fileName            
     def save(self,articlesCount): 
         self.processSave(articlesCount)
         self.prevArticlesCount = articlesCount 

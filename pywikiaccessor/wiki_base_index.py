@@ -37,26 +37,19 @@ class WikiBaseIndex (WikiFileIndex):
 class WikiTitleBaseIndex (WikiFileIndex):
     def __init__(self, wikiAccessor):
         super(WikiTitleBaseIndex, self).__init__(wikiAccessor)
-        self.titleDict = self.dictionaries['titleIndex']
-        self.textDict = self.dictionaries['textIndex']
+        self.titleDict = self.dictionaries['title_RawTitleIndex']
     def getDictionaryFiles(self): 
-        return ['titleIndex']
+        return ['title_RawTitleIndex']
     def getOtherFiles(self):    
-        pass
+        return []
     def loadOtherFiles(self):    
         pass
     def getBuilder(self):
         return WikiBaseIndexBuilder(self.directory,"articles.xml")
     def getName(self):
         return "baseTitle"
-    def getTextArticleById(self, ident):
-        if not self.textDict.get(ident, None):
-            return None
-        else:
-            self.textFile.seek(self.textDict[ident],0)
-            lenBytes = self.textFile.read(4)
-            length = int.from_bytes(lenBytes, byteorder='big')
-            return self.textFile.read(length).decode("utf-8") 
+    def getTitleArticleById(self, ident):
+        return self.titleDict.get(ident, None) 
     def getCount(self):
         return len(self.textDict)
     def getIds(self):
