@@ -208,10 +208,10 @@ class DocumentTypeIndex(wiki_file_index.WikiFileIndex):
         super(DocumentTypeIndex, self).__init__(wikiAccessor)
     
     def getDictionaryFiles(self): 
-        return ['IdToDocTypes','DocTypesToId']
+        return ['doctype_IdToDocTypes','doctype_DocTypesToId']
                         
     def getDocTypeById(self, ident):
-        return self.dictionaries['IdToDocTypes'].get(ident, None)
+        return self.dictionaries['doctype_IdToDocTypes'].get(ident, None)
     
     def isDocType(self, ident, docType):
         dtList = self.getDocTypeById(ident)
@@ -220,12 +220,12 @@ class DocumentTypeIndex(wiki_file_index.WikiFileIndex):
         return docType in dtList
 
     def getDocsOfType(self,docType):
-        return self.dictionaries['DocTypesToId'][docType]
+        return self.dictionaries['doctype_DocTypesToId'][docType]
 
     def getDocsWithoutType(self):
         res = []
-        for docId in self.dictionaries['IdToDocTypes'].keys():
-            if len(self.dictionaries['IdToDocTypes'][docId]) == 0:
+        for docId in self.dictionaries['doctype_IdToDocTypes'].keys():
+            if len(self.dictionaries['doctype_IdToDocTypes'][docId]) == 0:
                 res.append(docId)
         return res
 
@@ -247,9 +247,9 @@ class DocumentTypeIndexBuilder (wiki_iterator.WikiIterator):
         return
 
     def postProcess(self):
-        with open(self.getFullFileName('IdToDocTypes.pcl'), 'wb') as f:
+        with open(self.getFullFileName('doctype_IdToDocTypes.pcl'), 'wb') as f:
             pickle.dump(self.dataToTypes, f, pickle.HIGHEST_PROTOCOL)
-        with open(self.getFullFileName('DocTypesToId.pcl'), 'wb') as f:
+        with open(self.getFullFileName('doctype_DocTypesToId.pcl'), 'wb') as f:
             pickle.dump(self.dataToIds, f, pickle.HIGHEST_PROTOCOL)
 
     def preProcess(self):

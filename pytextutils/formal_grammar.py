@@ -2,14 +2,18 @@
 
 from abc import ABCMeta, abstractmethod
 from pytextutils.token_splitter import TokenSplitter, Token, TYPE_COMPLEX_TOKEN,\
-    TYPE_SIGN
+    TYPE_SIGN, POSTagger, TYPE_WORD
 
-def genComplexToken(tokens, start, end):
+def genComplexToken(tokens, start, end, embedNewToken = True,lexicalMode=False):
     tokenTextArray = []
     for i in range(start, end):
         tokenTextArray.append(tokens[i].token)
-        
-    tokenText = ' '.join(tokenTextArray)        
+    
+    if lexicalMode:
+        splitter = ''
+    else:    
+        splitter = ' '
+    tokenText = splitter.join(tokenTextArray)        
     token = Token(
             tokenText,
             tokens[start].startPos,
@@ -21,22 +25,28 @@ def genComplexToken(tokens, start, end):
             TYPE_COMPLEX_TOKEN,
             tokens[start].tokenNum)
     token.setInternalTokens(tokens[start:end])
-    tokens[start] = token
-    for i in reversed(range(start+1, end)):
-        del tokens[i]
+    if embedNewToken:
+        tokens[start] = token
+        for i in reversed(range(start+1, end)):
+            del tokens[i]
     return token
         
 class FormalGrammar(metaclass=ABCMeta):
-    def __init__(self, grammar):
+    def __init__(self, grammar,lexicalMode = False):
         self.grammar = grammar
+        self.lexicalMode = lexicalMode
         self.operations = {
             'exact': self.matchExact,
+            'exactnocase': self.matchExactNoCase,
+            'normalform': self.matchNormalForm,
             'maxlen': self.matchMaxLen,
             'newline': self.matchNewLine,
             'onlydigits': self.matchOnlyDigits,
             'onlybig': self.matchOnlyBig,
             'startfrombig': self.matchStartFromBig,
             'frombigletter': self.matchFromBigLetter,
+            'cyrword': self.matchCyrWord,
+            'pos':self.matchPOS,
             
             'optional': self.matchOptional,
             'oneof': self.matchOneOf,
@@ -44,7 +54,9 @@ class FormalGrammar(metaclass=ABCMeta):
             'repeat': self.matchRepeat,
             'alluntil': self.matchAllUntil,
             }
-    def combineTokens(self,tokens):
+    def combineTokens(self,tokens,embedNewTokens = True):
+        self.embedNewTokens = embedNewTokens
+        self.newTokens = []
         grammarRange = range(0,len(self.grammar))
         self.tokens = tokens
         tokenNum = 0
@@ -65,16 +77,27 @@ class FormalGrammar(metaclass=ABCMeta):
         unificationComplete = True
         oldTokenUnify = self.tokenUnify
         for gToken in grammarToken.keys():
+            if self.tokenUnify >= len(self.tokens):
+                return False
             self.tokenUnify = oldTokenUnify 
             operation = gToken 
             unificationComplete &= self.operations[operation.lower()](grammarToken[operation])
             if not unificationComplete:
                 break
-            if self.tokenUnify >= len(self.tokens):
-                return False
         return unificationComplete
+    
+    def matchNormalForm (self,param):   
+        result = self.tokens[self.tokenUnify].getBestNormalForm() == param
+        if result:
+            self.tokenUnify += 1 
+        return result 
+    def matchExactNoCase(self,param):
+        result = self.tokens[self.tokenUnify].token.lower() == param.lower()
+        if result:
+            self.tokenUnify += 1 
+        return result 
         
-    def matchExact(self,param):
+    def matchExact (self,param):
         result = self.tokens[self.tokenUnify].token == param
         if result:
             self.tokenUnify += 1 
@@ -93,7 +116,13 @@ class FormalGrammar(metaclass=ABCMeta):
                                            and not self.tokens[self.tokenUnify].newlineLeft))
         if result:
             self.tokenUnify += 1 
-        return result 
+        return result
+     
+    def matchPOS(self,param):
+        result = self.tokens[self.tokenUnify].getBestPOS() == param
+        if result:
+            self.tokenUnify += 1 
+        return result
     
     def matchOnlyDigits(self,param):
         result = (param == self.tokens[self.tokenUnify].onlyDigits()) 
@@ -112,7 +141,11 @@ class FormalGrammar(metaclass=ABCMeta):
         if result:
             self.tokenUnify += 1 
         return result
-
+    def matchCyrWord(self,param):
+        result = (param == self.tokens[self.tokenUnify].allCyr()) 
+        if result:
+            self.tokenUnify += 1 
+        return result
     def matchMaxLen(self,param):
         result = (param >= len(self.tokens[self.tokenUnify].token)) 
         if result:
@@ -170,6 +203,19 @@ class FormalGrammar(metaclass=ABCMeta):
         isInclude = param.get('include',False)
         startTokenUnify = self.tokenUnify
         oldTokenUnify = self.tokenUnify
+        if param.get('minCount',None):
+            for i in range(param.get('minCount')):
+                if self.tokenUnify >= len(self.tokens):
+                    self.tokenUnify = startTokenUnify
+                    return False
+                result = self.__unify(param['exp'])
+                if result: 
+                    self.tokenUnify = startTokenUnify
+                    return False
+                if self.tokenUnify == oldTokenUnify:
+                    self.tokenUnify += 1
+                oldTokenUnify = self.tokenUnify    
+            
         result = self.__unify(param['exp'])
         while not result:        
             if self.tokenUnify == oldTokenUnify:
@@ -184,132 +230,128 @@ class FormalGrammar(metaclass=ABCMeta):
             self.tokenUnify = oldTokenUnify  
         return True     
             
-    @abstractmethod
     def genToken(self,start,end):    
+        token = genComplexToken(self.tokens, start, end, self.embedNewTokens,self.lexicalMode)
+        self.processToken(token)
+        if self.embedNewTokens:
+            self.tokenUnify = start
+        else:
+            self.tokenUnify = end
+        self.newTokens.append(token)
+    
+    @abstractmethod
+    def processToken(self,token):
         pass
 
-class ExampleMatcher(FormalGrammar):
-    def __init__(self):
-        super(ExampleMatcher, self).__init__(
-         [
-            { 'oneOf':
-                [   
-                    {'group': [
-                        {'newLine':'Left','exact:':"Пример"},
-                        {'optional': {'onlyDigits':True} },
-                        {'optional':
-                            {'repeat': {'group':
-                                    [{'exact':'.'},{'onlyDigits':True}]}
-                             }
-                        },
-                        {'optional':
-                            { 'oneOf': [
-                                {'exact':'.'},
-                                {'exact':':'}
-                            ]},
-                        },
-                        {'allUntil':{'exp':{'newLine':'Left'},'include':False}}
-                    ]},
-                 ]
-             }
-        ]
-        )
-    def genToken(self,start,end):      
-        token = genComplexToken(self.tokens, start, end)
-        
-        numeratedExample = False
-        level = 0
-        for t in token.internalTokens:
-            if t.onlyDigits:
-                numeratedExample = True
-                level += 1
-            elif not t.tokenType == TYPE_SIGN:
-                break
-        token.setAdditionalInfo("example", 
-                                {'level': level,
-                                 'numerated_example':numeratedExample})   
-        self.tokenUnify = start
-        self.newTokens.append(token)
+class PatternMatcher(FormalGrammar):
+    def __init__(self, grammar=[]):
+        super(PatternMatcher, self).__init__(grammar)
+    def setParameters (self, grammar, fragmentType):
+        self.grammar = grammar
+        self.fragmentType = fragmentType
+    def processToken(self,token):      
+        token.setFlag(self.fragmentType)   
+            
 
-class HeaderMatcher(FormalGrammar):
+
+class SentenceSplitter(FormalGrammar):
     def __init__(self):
-        self.newTokens = []
-        super(HeaderMatcher, self).__init__(
+        super(SentenceSplitter, self).__init__(
          [
-            { 'oneOf':
-                [   
-                    {'group': [
-                        {'newLine':'Left only','onlyDigits':True,'maxLen':1},
-                        {'optional':
-                            {'repeat': {'group':
-                                    [{'exact':'.', 'newLine':'None'},{'onlyDigits':True, 'newLine':'None'}]}
-                             }
-                        },
-                        {'optional':{'exact':'.', 'newLine':'None'}},
-                        {'startFromBig':True},
-                        {'allUntil':{'exp':{'newLine':'Left'},'include':False}}
-                    ]},
-                    {'group': [
-                        { 'oneOf':
-                            [
-                                {'newLine':'Left','onlyBig':True},
-                                {'group': [
-                                    {'newLine':'Left only','onlyDigits':True,'maxLen':1},
-                                    {'optional':
-                                        {'repeat': {'group':
-                                                [{'exact':'.', 'newLine':'None'},{'onlyDigits':True, 'newLine':'None'}]}
-                                         }
-                                    },
-                                    {'optional':{'exact':'.', 'newLine':'None'}},       
-                                ]},
-                            ]
-                        }, 
-                        {'optional':{'repeat': {'onlyBig':True, 'newLine':'None'}}},
-                        {'newLine':'Right','onlyBig':True},
-                    ]},
-                    {'newLine':'Both','exact':'Введение'},  
-                    {'newLine':'Both','exact':'ВВЕДЕНИЕ'},  
-                    {'group': [{'newLine':'Left','exact':'Список'},{'newLine':'Right','exact':'литературы'}]},  
-                    {'group': [{'newLine':'Left','exact':'СПИСОК'},{'newLine':'Right','exact':'ЛИТЕРАТУРЫ'}]},  
-                    {'newLine':'Both','exact':'Заключение'},  
-                    {'newLine':'Both','exact':'ЗАКЛЮЧЕНИЕ'},  
-                    {'group': [
-                        { 'oneOf':
-                            [
-                                {'newLine':'Left','exact':"Приложение"},
-                                {'newLine':'Left','exact':"ПРИЛОЖЕНИЕ"},
-                            ]
-                        }, 
-                        {'optional':{'repeat': {'maxLen':1, 'newLine':'Right only'}}},
-                    ]},
-                 ]
+            {'allUntil':
+                {'exp':
+                    {'oneOf':
+                        [
+                            {'exact':'.'},
+                            {'exact':'?'},
+                            {'exact':'!'},
+                        ]
+                    },
+                  'include':True
+                 }
+                
              }
-        ]
+         ]
         )  
-    __popularHeaders = ['введение', 'заключение', 'список литературы', 'список использованных источников']      
-    def genToken(self,start,end):
-        token = genComplexToken(self.tokens, start, end)
+    def processToken(self,token):
+        token.setFlag("sentence") 
+
+class FormalLanguagesMatcher(FormalGrammar):
+    def __init__(self):
+        super(FormalLanguagesMatcher, self).__init__(
+         [
+            {'allUntil':
+                {
+                    'exp': {
+                        'oneOf':[
+                            {'cyrWord': True},
+                            {'group':[
+                                {'exact': '.'},
+                                {'cyrWord': True},
+                            ]}
+                        ]
+                    },
+                    'include':False,
+                    'minCount':3
+                 }
+             }
+         ]
+        )  
+    def processToken(self,token):
+        token.setFlag("formal") 
         
-        popularHeader = token.token.lower() in HeaderMatcher.__popularHeaders
-        numeratedHeader = False
-        if popularHeader:
-            headerLevel = 1
-        else:
-            headerLevel = 0
-            for t in token.internalTokens:
-                if t.onlyDigits():
-                    numeratedHeader = True
-                    headerLevel += 1
-                elif not t.tokenType == TYPE_SIGN:
-                    break
-            if headerLevel == 0:
-                headerLevel = 1   
-        token.setAdditionalInfo("header", 
-                                {'is_popular_header':popularHeader, 
-                                 'header_level': headerLevel,
-                                 'numerated_header':numeratedHeader})   
-        self.tokenUnify = start
-        self.newTokens.append(token)
+class NameGroupsMatcher(FormalGrammar):
+    def __init__(self):
+        super(NameGroupsMatcher, self).__init__(
+         [
+            {'repeat': 
+                {'oneOf':
+                    [   
+                        {'POS':'NOUN'},
+                        {'POS':'NPRO'},
+                        {'POS':'ADJF'},
+                        {'POS':'ADJS'},
+                        {'POS':'PRED'}
+                    ]
+                 }
+             }
+         ]
+        )  
+         
+    def processToken(self,token):
+        token.setFlag("name_group") 
+
+
+        
+
+text = '''
+ После обучения перцептрон готов работать в режиме распознавания [ 10 ] или обобщения [ 11 ] . В этом режиме перцептрону предъявляются ранее неизвестные ему объекты , и перцептрон должен установить , к какому классу они принадлежат .
+    '''
+ts = TokenSplitter()
+tokens = ts.split(text)
+fs = FormalLanguagesMatcher()
+fs.combineTokens(tokens)
+ss = SentenceSplitter()
+ss.combineTokens(tokens)
+print(len(tokens))
+
+#text = 'Иногда (а точнее, довольно часто) возникают ситуации, когда нужно сделать строку, подставив в неё некоторые данные, полученные в процессе выполнения программы (пользовательский ввод, данные из файлов и так далее). Подстановку данных можно сделать с помощью форматирования строк. Форматирование можно сделать с помощью оператора %, либо с помощью метода format.'        
+#text = 'Иногда (а точнее, довольно часто) tokens = ts.getTokenArray() возникают ситуации, когда нужно сделать строку, подставив в неё некоторые данные, полученные в процессе выполнения программы (пользовательский ввод, данные из файлов и так далее). Подстановку данных можно сделать с помощью ts.split(text) форматирования строк. '
+#ts = TokenSplitter()
+#ts.split(text)
+#tokens = ts.getTokenArray()
+#POSTagger().posTagging(tokens)
+
+#ns = NameGroupsSelector()
+#ns.combineTokens(tokens)
+#print(len(tokens))           
+#fs = FormalLanguagesSelector()
+#fs.combineTokens(tokens)
+#print(len(tokens))
+
+#ss = SentenceSplitter()
+#ss.combineTokens(tokens)
+#print(len(tokens))
 
 #text = '''
 #снегонакопления.

@@ -3,7 +3,7 @@ from pytextutils.cached_pymorphy_morph import CachedPymorphyMorph
 TYPE_TOKEN = 1
 TYPE_SIGN = 2
 TYPE_WORD = 3
-TYPE_COMPLEX_TOKEN = 3
+TYPE_COMPLEX_TOKEN = 4
 BIG_CYR_LETTERS = "ЁЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ"
 BIG_LATIN_LETTERS = "QWERTYUIOPASDFGHJKLZXCVBNM"
 LITTLE_CYR_LETTERS = "ёйцукенгшщзхъфывапролджэячсмитьбю"
@@ -29,8 +29,14 @@ class Token:
         self.tokenType = tokenType
         self.tokenNum = tokenNum
         self.additionalInfo = {}
+        self.POS = None
+        self.flags = {}
     def __str__(self):
-        return str(self.tokenType) + ' ' + self.token    
+        return str(self.tokenType) + ' ' + self.token  
+    def setFlag(self,flag,value=True):
+        self.flags[flag] = value  
+    def isFlag(self,flag):
+        return self.flags.get(flag,False)  
     def setAdditionalInfo(self,field,info):
         self.additionalInfo[field] = info
     def setPOS(self,pos):
@@ -39,6 +45,10 @@ class Token:
     def getBestPOS(self):
         if self.POS:
             return self.POS[0]['POS']
+        return None
+    def getBestNormalForm(self):
+        if self.POS:
+            return self.POS[0]['normalForm']
         return None
     def hasDigits(self):
         return any(i in DIGITS for i in self.token)
@@ -59,7 +69,7 @@ class Token:
    
 class POSTagger: 
     __TRESHOLD = 0.0005   
-    __notAVerbs = set(["при","начало","три","день","части","времени","минут","мини","мину","плей","плети","трем","трём","cочи","Сочи"])
+    __notAVerbs = set(["данные","гипер","прокси","при","начало","три","день","части","времени","минут","мини","мину","плей","плети","трем","трём","cочи","Сочи"])
     __morph = CachedPymorphyMorph()
     
     @staticmethod
@@ -91,15 +101,13 @@ class POSTagger:
                 stems.add(res.normal_form)
                 posInfo.append(element)
             tokens[i].setAdditionalInfo('parse_result',parse_result)
-            tokens[i].setPOS(posInfo)
-        
-    
+            tokens[i].setPOS(posInfo)        
+
 class TokenSplitter:
     def __init__(self):
         pass
     
     def addToken(self):    
-        self.wordArray.append(self.curWord)
         self.tokenArray.append(
             Token(
                 self.curWord,
@@ -115,7 +123,6 @@ class TokenSplitter:
         self.tokenNum += 1 
         
     def split(self,text):
-        self.wordArray = []
         self.tokenArray = []
         self.curWord = '' 
         self.startPos = 0
@@ -180,10 +187,7 @@ class TokenSplitter:
             self.endPos = pos
             self.addToken()
         
-        return self.wordArray
-    
-    def getWordArray(self):
-        return self.wordArray
+        return self.tokenArray 
     
     def getTokenArray(self):
         return self.tokenArray 
