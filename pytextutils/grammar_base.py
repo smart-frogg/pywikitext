@@ -9,6 +9,8 @@ def genComplexToken(tokens, start, end, embedNewToken = True,lexicalMode=False):
     for i in range(start, end):
         tokenTextArray.append(tokens[i].token)
     
+    if len(tokenTextArray) == 0:
+        return None
     if lexicalMode:
         splitter = ''
     else:    
@@ -18,10 +20,10 @@ def genComplexToken(tokens, start, end, embedNewToken = True,lexicalMode=False):
             tokenText,
             tokens[start].startPos,
             tokens[end-1].endPos,
-            tokens[start].spaceLeft,
-            tokens[end-1].spaceRight,
-            tokens[start].newlineLeft,
-            tokens[end-1].newlineRight,
+            tokens[start].isFlag('spaceLeft'),
+            tokens[end-1].isFlag('spaceRight'),
+            tokens[start].isFlag('newlineLeft'),
+            tokens[end-1].isFlag('newlineRight'),
             TYPE_COMPLEX_TOKEN,
             tokens[start].tokenNum)
     token.setInternalTokens(tokens[start:end])
@@ -43,11 +45,13 @@ class FormalGrammar(metaclass=ABCMeta):
             'newline': self.matchNewLine,
             'onlydigits': self.matchOnlyDigits,
             'onlybig': self.matchOnlyBig,
-            'startfrombig': self.matchStartFromBig,
             'frombigletter': self.matchFromBigLetter,
             'cyrword': self.matchCyrWord,
             'pos':self.matchPOS,
+            'endoftext':self.matchEndOfText,
+            'checkflags':self.matchCheckFlags,
             
+            'not': self.matchNot,
             'optional': self.matchOptional,
             'oneof': self.matchOneOf,
             'group': self.matchGroup,
@@ -104,16 +108,16 @@ class FormalGrammar(metaclass=ABCMeta):
         return result 
 
     def matchNewLine(self,param):
-        result = ((param.lower() == 'left' and self.tokens[self.tokenUnify].newlineLeft) or 
-                  (param.lower() == 'right' and self.tokens[self.tokenUnify].newlineRight) or
-                  (param.lower() == 'left only' and self.tokens[self.tokenUnify].newlineLeft 
-                                                and not self.tokens[self.tokenUnify].newlineRight) or 
-                  (param.lower() == 'right only' and self.tokens[self.tokenUnify].newlineRight
-                                                 and not self.tokens[self.tokenUnify].newlineLeft) or
-                  (param.lower() == 'both' and self.tokens[self.tokenUnify].newlineRight 
-                                           and self.tokens[self.tokenUnify].newlineLeft) or
-                  (param.lower() == 'none' and not self.tokens[self.tokenUnify].newlineRight 
-                                           and not self.tokens[self.tokenUnify].newlineLeft))
+        result = ((param.lower() == 'left' and self.tokens[self.tokenUnify].isFlag('newlineLeft')) or 
+                  (param.lower() == 'right' and self.tokens[self.tokenUnify].isFlag('newlineRight')) or
+                  (param.lower() == 'left only' and self.tokens[self.tokenUnify].isFlag('newlineLeft') 
+                                                and not self.tokens[self.tokenUnify].isFlag('newlineRight')) or 
+                  (param.lower() == 'right only' and self.tokens[self.tokenUnify].isFlag('newlineRight')
+                                                 and not self.tokens[self.tokenUnify].isFlag('newlineLeft')) or
+                  (param.lower() == 'both' and self.tokens[self.tokenUnify].isFlag('newlineRight') 
+                                           and self.tokens[self.tokenUnify].isFlag('newlineLeft')) or
+                  (param.lower() == 'none' and not self.tokens[self.tokenUnify].isFlag('newlineRight') 
+                                           and not self.tokens[self.tokenUnify].isFlag('newlineLeft')))
         if result:
             self.tokenUnify += 1 
         return result
@@ -124,6 +128,16 @@ class FormalGrammar(metaclass=ABCMeta):
             self.tokenUnify += 1 
         return result
     
+    def matchCheckFlags(self,param):
+        result = True
+        for f in param: 
+            result &= self.tokens[self.tokenUnify].isFlag(f) == param[f]
+            if not result:
+                break
+        if result:
+            self.tokenUnify += 1 
+        return result
+        
     def matchOnlyDigits(self,param):
         result = (param == self.tokens[self.tokenUnify].onlyDigits()) 
         if result:
@@ -136,11 +150,6 @@ class FormalGrammar(metaclass=ABCMeta):
             self.tokenUnify += 1 
         return result
      
-    def matchStartFromBig(self,param):
-        result = (param == self.tokens[self.tokenUnify].fromBigLetter()) 
-        if result:
-            self.tokenUnify += 1 
-        return result
     def matchCyrWord(self,param):
         result = (param == self.tokens[self.tokenUnify].allCyr()) 
         if result:
@@ -157,7 +166,13 @@ class FormalGrammar(metaclass=ABCMeta):
         if result:
             self.tokenUnify += 1 
         return result 
-
+    
+    def matchEndOfText(self,param):
+        return self.tokenUnify == len(self.tokens)-1
+    
+    def matchNot(self,param):
+        result = self.__unify(param) 
+        return not result
     def matchOptional(self,param):
         oldTokenUnify = self.tokenUnify
         result = self.__unify(param) 
@@ -186,17 +201,26 @@ class FormalGrammar(metaclass=ABCMeta):
     def matchRepeat(self,param):
         startTokenUnify = self.tokenUnify
         oldTokenUnify = self.tokenUnify
-        result = self.__unify(param)
+        result = self.__unify(param['element'])
+        minCount = param.get('minCount',None)
         if not result:
-            self.tokenUnify = oldTokenUnify
+            self.tokenUnify = startTokenUnify
             return False
+        count = 1
         while result:        
             if self.tokenUnify >= len(self.tokens):
-                self.tokenUnify = startTokenUnify
-                return False
+                #self.tokenUnify = startTokenUnify
+                #return True
+                break
             oldTokenUnify = self.tokenUnify
-            result = self.__unify(param)
-        self.tokenUnify = oldTokenUnify  
+            result = self.__unify(param['element'])
+            if result:
+                count += 1
+        if not result:   
+            self.tokenUnify = oldTokenUnify
+        if minCount and minCount > count:
+            self.tokenUnify = startTokenUnify
+            return False   
         return True
              
     def matchAllUntil(self,param):
@@ -258,42 +282,59 @@ class SentenceSplitter(FormalGrammar):
     def __init__(self):
         super(SentenceSplitter, self).__init__(
          [
-            {'allUntil':
-                {'exp':
-                    {'oneOf':
-                        [
-                            {'exact':'.'},
-                            {'exact':'?'},
-                            {'exact':'!'},
-                        ]
-                    },
-                  'include':True
-                 }
+            {'oneOf': [
+                {'checkFlags':{'header':True}},
+                {'allUntil':
+                    {'exp':
+                        {'oneOf':
+                            [
+                                {'exact':'.'},
+                                {'exact':'?'},
+                                {'exact':'!'},
+                                {'endoftext':True},
+                            ]
+                        },
+                      'include':True
+                     }
                 
-             }
+                }
+            ]}
+            
          ]
         )  
     def processToken(self,token):
-        token.setFlag("sentence") 
+        if token:
+            token.setFlag("sentence") 
 
 class FormalLanguagesMatcher(FormalGrammar):
     def __init__(self):
         super(FormalLanguagesMatcher, self).__init__(
          [
-            {'allUntil':
-                {
-                    'exp': {
-                        'oneOf':[
+            {'group':
+                [
+                    {'not':
+                        {'oneOf': [
+                            {'exact': '.'},
                             {'cyrWord': True},
-                            {'group':[
-                                {'exact': '.'},
-                                {'cyrWord': True},
-                            ]}
-                        ]
+                        ]}
                     },
-                    'include':False,
-                    'minCount':3
-                 }
+                    {'allUntil':
+                        {
+                            'exp': {
+                                'oneOf':[
+                                    {'cyrWord': True},
+                                    {'group':[
+                                        {'exact': '.'},
+                                        {'cyrWord': True},
+                                    ]},
+                                    {'exact': '.', 'endOfText': True}                             
+                                ]
+                            },
+                            'include':False,
+                            'minCount':3
+                         }
+                     }
+                 ]
              }
          ]
         )  
@@ -324,22 +365,28 @@ class NameGroupsMatcher(FormalGrammar):
 
         
 
-text = '''
- После обучения перцептрон готов работать в режиме распознавания [ 10 ] или обобщения [ 11 ] . В этом режиме перцептрону предъявляются ранее неизвестные ему объекты , и перцептрон должен установить , к какому классу они принадлежат .
-    '''
-ts = TokenSplitter()
-tokens = ts.split(text)
-fs = FormalLanguagesMatcher()
-fs.combineTokens(tokens)
-ss = SentenceSplitter()
-ss.combineTokens(tokens)
-print(len(tokens))
+#text = '''
+# После обучения перцептрон готов работать в режиме распознавания [ 10 ] или обобщения [ 11 ] . В этом режиме перцептрону предъявляются ранее неизвестные ему объекты , и перцептрон должен установить , к какому классу они принадлежат .
+#    '''
+#ts = TokenSplitter()
+#tokens = ts.split(text)
+#fs = FormalLanguagesMatcher()
+#fs.combineTokens(tokens)
+#ss = SentenceSplitter()
+#ss.combineTokens(tokens)
+#print(len(tokens))
 
-#text = 'Иногда (а точнее, довольно часто) возникают ситуации, когда нужно сделать строку, подставив в неё некоторые данные, полученные в процессе выполнения программы (пользовательский ввод, данные из файлов и так далее). Подстановку данных можно сделать с помощью форматирования строк. Форматирование можно сделать с помощью оператора %, либо с помощью метода format.'        
+#text = 'Каждый рецептор может находиться в одном из двух состояний — покоя или возбуждения , и только в последнем случае он передаёт единичный сигнал в следующий слой , ассоциативным элементам . A - элементы называются ассоциативными , потому что каждому такому элементу , как правило , соответствует целый набор ( ассоциация ) S - элементов . A - элемент активизируется , как только количество сигналов от S - элементов на его входе превысило некоторую величину θ [ nb 5 ] .'        
+#text = 'величину θ [ nb 5 ] .'        
 #text = 'Иногда (а точнее, довольно часто) tokens = ts.getTokenArray() возникают ситуации, когда нужно сделать строку, подставив в неё некоторые данные, полученные в процессе выполнения программы (пользовательский ввод, данные из файлов и так далее). Подстановку данных можно сделать с помощью ts.split(text) форматирования строк. '
 #ts = TokenSplitter()
 #ts.split(text)
 #tokens = ts.getTokenArray()
+#fs = FormalLanguagesMatcher()
+#fs.combineTokens(tokens)
+#ss = SentenceSplitter()
+#ss.combineTokens(tokens)
+#print(len(tokens))
 #POSTagger().posTagging(tokens)
 
 #ns = NameGroupsSelector()

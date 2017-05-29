@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from pytextutils.formal_grammar import FormalGrammar
+from pytextutils.grammar_base import FormalGrammar
 from pytextutils.token_splitter import TYPE_TOKEN
 
 class DefisWordsBuilder (FormalGrammar):

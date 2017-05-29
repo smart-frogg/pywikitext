@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from pytextutils.token_splitter import TokenSplitter, POSTagger, TYPE_SIGN, TYPE_COMPLEX_TOKEN
-from pytextutils.formal_grammar import FormalLanguagesMatcher 
+from pytextutils.grammar_base import FormalLanguagesMatcher 
 from pytextutils.grammar_lexic import DefisWordsBuilder
 from pywikiaccessor.wiki_accessor import WikiAccessor
 from pywikiaccessor.wiki_file_index import WikiFileIndex
@@ -9,13 +9,13 @@ from pywikiaccessor.title_index import TitleIndex
 from pywikiaccessor.document_type import DocumentTypeIndex
 from pywikiaccessor.wiki_tokenizer import WikiTokenizer
 from pywikiaccessor.wiki_base_index import WikiBaseIndex
-from pytextutils.text_stat import normalize, TextStat, normalizeMaxMin
+from pytextutils.text_stat import normalize, TextStat, normalizeMaxMin, TEXT_STAT_KEYS
+from pywikiutils.wiki_headers import HeadersFileIndex,HeadersFileBuilder
 
 import numpy as np
 import pickle
 import json
 import codecs
-from wiki_headers import HeadersFileIndex,HeadersFileBuilder
 from collections import Counter
 from math import log
 
@@ -121,22 +121,9 @@ class AbstractFragmentIterator(metaclass=ABCMeta):
         self.accessor = accessor
         self.headerIndex = HeadersFileIndex(accessor,headerIndexPrefix)
         self.prefix = headerIndexPrefix
-        self.wikiTokenizer = WikiTokenizer()
         self.tokenSplitter = TokenSplitter()
         self.posTagger = POSTagger()
         FragmentConfig(accessor.directory)
-        self.wikiIndex = accessor.getIndex(WikiBaseIndex)
-
-    def getDocSection(self,docId,headerId):
-        text = self.wikiIndex.getTextArticleById(docId)
-        headers = self.headerIndex.headersByDoc(docId)
-        headerN = [i for i, h in enumerate(headers) if h['header'] == headerId][0]
-        start = headers[headerN]["position_match"]
-        if headerN == len(headers)-1:
-            finish = len(text)
-        else:
-            finish = headers[headerN+1]["position_start"]
-        return self.wikiTokenizer.clean(text[start:finish])
 
     @abstractmethod
     def preProcess(self):
@@ -209,7 +196,7 @@ class СollocationBuilder(AbstractFragmentIterator):
         pass
     
     def processDocument(self, fType, headerId, docId):
-        text = self.getDocSection(docId, headerId)
+        text = self.headerIndex.getDocSection(docId, headerId)
         self.tokenSplitter.split(text)
         tokens = self.tokenSplitter.getTokenArray() 
         self.posTagger.posTagging(tokens)
@@ -219,17 +206,23 @@ class СollocationBuilder(AbstractFragmentIterator):
         fragmentEnd = -1
         self.fragmentLen[fType] += len(tokens)
         self.totalLen += len(tokens)
+        signCount = 0
         for i in range(len(tokens)):
-            if fragmentEnd - fragmentStart >=2 :
+            if ((fragmentEnd - fragmentStart >=2 and signCount < fragmentEnd - fragmentStart) 
+               or (fragmentEnd - fragmentStart == 1 and tokens[fragmentStart].tokenType !=TYPE_SIGN)):
                 fragment = Fragment(tokens[fragmentStart:fragmentEnd],self.goodWords)
                 self.fragments[fType][fragment] += 1
                 self.totalCounts[fragment] += 1
+                signCount = 0
             if Fragment.isCommon(tokens[i],self.goodWords):
                 fragmentStart = -1
                 fragmentEnd = -1
+                signCount = 0
             else:
                 if fragmentStart == -1:
                     fragmentStart = i
+                if tokens[i].tokenType == TYPE_SIGN:
+                    signCount+=1
                 fragmentEnd = i            
                         
     def printFragments(self, onlyGood = False):
@@ -241,7 +234,7 @@ class СollocationBuilder(AbstractFragmentIterator):
                 if self.fragments[fType][fragment] < 10:
                     break
                 print ("\t{}:{}".format(str(fragment),self.fragments[fType][fragment]))
-
+from pywikiaccessor.wiki_plain_text_index import WikiPlainTextIndex
 
 class StatBuilder(AbstractFragmentIterator):
     
@@ -250,28 +243,42 @@ class StatBuilder(AbstractFragmentIterator):
     
     def preProcess(self):
         self.fragments = {}
+        self.relativeStat = {}
+        self.docStats = {}
+        self.plainTextIndex = WikiPlainTextIndex(self.accessor)
 
     def postProcess(self):
         with open(self.accessor.directory+self.prefix + 'stat.pcl', 'wb') as f:
             pickle.dump(self.fragments, f, pickle.HIGHEST_PROTOCOL)
+        with open(self.accessor.directory+self.prefix + 'relativeStat.pcl', 'wb') as f:
+            pickle.dump(self.relativeStat, f, pickle.HIGHEST_PROTOCOL)
 
     def processFragmentStart(self, fType):    
         self.fragments[fType] = []
+        self.relativeStat[fType] = []
         
     def processFragmentEnd(self, fType):    
         pass
     
-    def processDocument(self, fType, headerId, docId):
-        text = self.getDocSection(docId, headerId)
-        ts = TextStat(self.accessor.directory,text = text)
+    def __getStat(self,text):
+        ts = TextStat(self.accessor.directory,text = text,clearWrap = False)
         rawStat = ts.buildPOSStat()
         for key in rawStat:
             rawStat[key] = rawStat[key][0] 
-        stat = normalizeMaxMin(rawStat)
+        stat = normalize(rawStat)
+        return stat
+    def processDocument(self, fType, headerId, docId):
+        text = self.headerIndex.getDocSection(docId, headerId)
+        stat = self.__getStat(text)
         self.fragments[fType].append(stat)
+        if not self.docStats.get(docId,None):
+            docText = self.plainTextIndex.getTextById(docId)
+            self.docStats[docId] = self.__getStat(docText)
+        relativeStat = {k: float(stat[k])/self.docStats[docId][k] if self.docStats[docId][k] != 0 else 0 for k in stat}
+        self.relativeStat[fType].append(relativeStat)
                                 
     def print(self):
-        keys = ["DOTS","COMMAS","NOUNS","VERBS","ADJS","FUNC","UNIQUE_NOUNS","UNIQUE_VERBS","UNIQUE_ADJS","UNIQUE_FUNC"]
+        keys = TEXT_STAT_KEYS
         for fType in self.fragments:
             print(fType)
             stat = np.empty((len(self.fragments[fType]),len(self.fragments[fType][0])),dtype=np.float) 
@@ -340,7 +347,7 @@ class POSListBuilder(AbstractFragmentIterator):
         pass
     
     def processDocument(self, fType, headerId, docId):
-        text = self.getDocSection(docId, headerId)
+        text = self.headerIndex.getDocSection(docId, headerId)
         self.tokenSplitter.split(text)
         tokens = self.tokenSplitter.getTokenArray()
         self.posTagger.posTagging(tokens)
@@ -439,8 +446,21 @@ class POSListIndex(WikiFileIndex):
             count += wordDict[word]
             goodWords.append(word)
         return goodWords
+    def getMostFreqVerbs(self,fType, part):
+        wordDict = self.dictionaries['hists'][fType]['VERB']
+        fullCount = sum(list(wordDict.values()))
+        count = 0
+        goodWords = []
+        for word in sorted(wordDict, key=wordDict.get, reverse=True):
+            if count > part*fullCount:
+                break
+            count += wordDict[word]
+            goodWords.append(word)
+        return goodWords
     def getKeyVerbsAsDict(self,fType):
         return self.dictionaries['hists'][fType]['VERB']
+    def getKeyNounsAsDict(self,fType):
+        return self.dictionaries['hists'][fType]['NOUN']
     def getVerbsHistsForAllTypes(self):
         res = {}
         for fType in self.getFunctionalTypes():
@@ -460,9 +480,16 @@ class CollocationGrammars(WikiFileIndex):
     def getDictionaryFiles(self): 
         return ['collocations']
     
-    def getGrammars(self,fType,count = None):
+    def getGrammars(self,fType,count = None,border=None):
         if count:
             return self.dictionaries['collocations'][fType][:count]
+        if border:
+            i = 0
+            while i < len(self.dictionaries['collocations'][fType]):
+                if self.dictionaries['collocations'][fType][i]['freq'] < border:
+                    break
+                i+=1
+            return self.dictionaries['collocations'][fType][:i]
         return self.dictionaries['collocations'][fType]
     def getFunctionalTypes(self):
         return list(self.dictionaries['collocations'].keys())
@@ -470,10 +497,8 @@ class CollocationGrammars(WikiFileIndex):
         return СollocationBuilder(self.accessor,self.prefix)
     def getName(self):
         return "collocatoin_grammars"
-        
-def buildHeaders (categories,prefix):
-    directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-    accessor =  WikiAccessor(directory)
+
+def getArticles(categories,accessor):
     categoryIndex = accessor.getIndex(CategoryIndex)
     titleIndex = accessor.getIndex(TitleIndex)
     documentTypes = accessor.getIndex(DocumentTypeIndex)        
@@ -483,18 +508,26 @@ def buildHeaders (categories,prefix):
         categoryId = categoryIndex.getIdByTitle(cat)
         catPages = categoryIndex.getAllPagesAsSet(categoryId)
         pages.update(catPages)
-    with codecs.open( directory+'titles.txt', 'w', 'utf-8' ) as f:
+    with codecs.open( accessor.directory+'titles.txt', 'w', 'utf-8' ) as f:
         for p in list(pages):
             if (documentTypes.isDocType(p,'person') or 
                 documentTypes.isDocType(p,'location') or 
                 documentTypes.isDocType(p,'entertainment') or 
                 documentTypes.isDocType(p,'organization') or 
-                documentTypes.isDocType(p,'event')):
+                documentTypes.isDocType(p,'event') or 
+                documentTypes.isDocType(p,'category') or 
+                documentTypes.isDocType(p,'substance')):
                 pages.discard(p)
             else:
                 # print(titleIndex.getTitleById(p))
                 f.write(titleIndex.getTitleById(p)+'\n')
         f.close()
+    return pages
+    
+def buildHeaders (categories,prefix):
+    directory = "C:\\WORK\\science\\onpositive_data\\python\\"
+    accessor =  WikiAccessor(directory)
+    pages = getArticles(categories,accessor)
     print(len(pages))    
     hb = HeadersFileBuilder(accessor,list(pages),prefix) 
     hb.build()
@@ -530,11 +563,22 @@ def buildPOSList (prefix):
     sb.build()
     sb.printTfIdf()
 
-#buildPOSList ('miph_')
-#buildFragments('miph_')
+def getStat():
+    directory = "C:\\WORK\\science\\onpositive_data\\python\\"
+    accessor =  WikiAccessor(directory)
+    bi = WikiBaseIndex(accessor)
+    print('Articles in Wikipedia:' + str(bi.getCount()))
+    pages = getArticles(['Математика','Информатика','Физика'],accessor)
+    print('Articles in Subset:' + str(len(pages)))
+    
+    
+if __name__ =="__main__":
+    #buildHeaders(['Математика','Информатика','Физика'],'miph_')
+    #buildPOSList ('miph_')
+    #buildFragments('miph_')
+    getStat()
+    #buildStat('miph_')
 
-# buildStat('miph_')
-#buildHeaders(['Математика','Информатика',"Физика"],'miph_')
 
 '''
 directory = "C:\\WORK\\science\\onpositive_data\\python\\"
@@ -548,24 +592,25 @@ POSTagger().posTagging(tokens)
 f = Fragment(tokens)
 print(f.genGrammar())
 
-cg = CollocationGrammars(accessor,'miph_')
+cg = CollocationGrammars(accessor,'math_')
 for fType in cg.getFunctionalTypes():
-    for gr in cg.getGrammars(fType, 10):
-        print (str(gr))
+    for gr in cg.getGrammars(fType, 1000):
+        print (str(gr['name']))
+'''
 
-pli = POSListIndex(accessor,'miph_')
-for fType in pli.getFunctionalTypes(): 
-    print(fType)
-    goodWords = pli.getKeyNouns(fType)
-    print('\tKey nouns')
-    for word in goodWords:
-        print("\t\t"+word)
+#pli = POSListIndex(accessor,'math_')
+#for fType in pli.getFunctionalTypes(): 
+#    print(fType)
+#    goodWords = pli.getKeyNouns(fType)
+#    print('\tKey nouns')
+#    for word in goodWords:
+#        print("\t\t"+word)
     #goodWords = pli.getFunctionalNouns(fType, 0.5)
     #print('\tFunctional nouns')
     #for word in goodWords:
     #    print("\t\t"+word)
-    goodWords = pli.getKeyVerbs(fType, 1.2,0.5)
-    print('\tKey verbs')
-    for word in goodWords:
-        print("\t\t"+word)
-'''
+    #goodWords = pli.getKeyVerbs(fType, 1.2,0.5)
+    #goodWords = pli.getMostFreqVerbs(fType,0.5)
+    #print('\tKey verbs')
+    #for word in goodWords:
+    #    print("\t\t"+word)

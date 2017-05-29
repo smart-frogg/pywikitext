@@ -76,7 +76,7 @@ class XMLWikiParser(xml.sax.ContentHandler):
             self.text += content
     def endDocument(self):
         self.textFile.close()
-        with open(self.directory + 'titleIndex.pcl', 'wb') as f:
+        with open(self.directory + 'title_RawTitleIndex.pcl', 'wb') as f:
             pickle.dump(self.titleDict, f, pickle.HIGHEST_PROTOCOL)
         with open(self.directory + 'textIndex.pcl', 'wb') as f:
             pickle.dump(self.textDict, f, pickle.HIGHEST_PROTOCOL)       

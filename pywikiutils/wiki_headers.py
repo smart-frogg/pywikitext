@@ -38,6 +38,37 @@ class HeadersExtractor:
             htype -= 1
         headers.sort(key=lambda header: header['position_match'])
         return headers
+    
+if __name__ =="__main__":
+    def simpleRenum(h):
+        return 1
+    he = HeadersExtractor(simpleRenum)
+    text = '''
+===Формальное определение===
+Минимизировать <math> \bold c^Tx</math> при условиях <math>\bold a_i^T x \le b_i, i = 1,\ldots,m</math>
+
+Принимаем строгие ограничения: <math> \{\bold x|A x < b\}\ne\emptyset </math>
+
+Определим ''логарифмический барьер'' <math>\Phi(x) = \begin{cases}
+
+\sum_{i=1}^m -\log(b_i - a_i^Tx), Ax<b \\
++\infty, Ax  \ge b
+\end{cases}</math>
+
+==Литература==
+*{{книга
+|заглавие= Numerical Optimization
+|автор=Jorge Nocedal, Stephen Wright
+|год=1999
+|издательство=Springer
+|место=New York, NY
+|isbn=0-387-98793-2
+}}
+'''
+    for h in he.getHeadersForDoc(1, text):
+        print('----------------------------------------------------')
+        print(text[h['position_match']:h['position_start']])
+    
 
 # Билдер файлового индекса заголовков
 class HeadersFileBuilder (WikiIterator):
@@ -91,26 +122,43 @@ class HeadersFileBuilder (WikiIterator):
                 self.headerDocuments[h['header']] = []
             self.headerDocuments[h['header']].append(docId)
 
+from pywikiaccessor.wiki_base_index import WikiBaseIndex
 # Файловый индекс заголовков             
 class HeadersFileIndex(WikiFileIndex):
     def __init__(self, wikiAccessor,prefix =''):
         super(HeadersFileIndex, self).__init__(wikiAccessor,prefix)
+        self.wikiIndex = wikiAccessor.getIndex(WikiBaseIndex)
+        self.wikiTokenizer = WikiTokenizer()
 
     def getDictionaryFiles(self): 
         return ['HeadersToIds','IdsToHeaders','HeaderDocuments','DocumentHeaders']
+    def getStat(self, header):
+        if type(header) == str:
+            headerId = self.headerId(header)
+        else:
+            headerId = header
+        return {'id': headerId,
+                'text': self.dictionaries['IdsToHeaders'][headerId],
+                'cnt': len(self.dictionaries['HeaderDocuments'][headerId])}   
+     
     def getAllStat(self):
-        sortedHeaders = sorted(self.dictionaries['HeaderDocuments'],key=lambda header: len(self.dictionaries['HeaderDocuments'][header]),reverse=True)
+        sortedHeaders = sorted(self.dictionaries['HeaderDocuments'],
+                               key=lambda header: (-len(self.dictionaries['HeaderDocuments'][header]),self.dictionaries['IdsToHeaders'][header]))
         res = []
         for element in sortedHeaders:
             res.append ({'id': element,'text': self.dictionaries['IdsToHeaders'][element],'cnt': len(self.dictionaries['HeaderDocuments'][element])})
         return res
     def headerId(self,header):
         return self.dictionaries['HeadersToIds'].get(header.strip().lower(),None)
+    def headerText(self,headerId):
+        return self.dictionaries['IdsToHeaders'][int(headerId)]
     def documentsByHeader(self,header):
         headerId = self.dictionaries['HeadersToIds'].get(header.strip().lower(),None)
         if not headerId:
             return []
         return self.dictionaries['HeaderDocuments'].get(headerId,None)                      
+    def documentsByHeaderId(self,headerId):
+        return self.dictionaries['HeaderDocuments'].get(headerId,None)  
     def headersByDoc(self,docId):
         return self.dictionaries['DocumentHeaders'].get(docId,None)   
     def getBuilder(self):
@@ -118,6 +166,23 @@ class HeadersFileIndex(WikiFileIndex):
     def getName(self):
         return "headers"            
 
+    def getDocSection(self,docId,headerId):
+        text = self.wikiIndex.getTextArticleById(docId)
+        headers = self.headersByDoc(docId)
+        headerN = [i for i, h in enumerate(headers) if h['header'] == headerId][0]
+        start = headers[headerN]["position_start"]
+        if headerN == len(headers)-1:
+            finish = len(text)
+        else:
+            #finish = headers[headerN+1]["position_match"]
+            i = headerN+1
+            while i < len(headers) and headers[headerN]['type'] < headers[i]['type']:
+                i += 1
+            if i == len(headers):
+                finish = len(text)
+            else:  
+                finish = headers[i]["position_match"]
+        return self.wikiTokenizer.clean(text[start:finish])
 '''
 Билдер индекса заголовков, хранящийся в базе
 
@@ -282,17 +347,21 @@ class HeadersDBIndex:
             res.append ({'id': element[0],'text': element[1],'cnt': element[2]})
         return res    
   
-      
+if __name__ == "__main__":      
 #regex1 = re.compile('\n[ \t]*==([^=]*)==[ \t\r]*\n')
 #text = " kdkd\n == kdkd==\n"
 #match = regex1.search(text)
 #print(match.end())
-#directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-#accessor = WikiAccessor(directory)
-#docTypesIndex = DocumentTypeIndex(accessor)
-#docIds = docTypesIndex.getDocsOfType("sciense")
-#titleIndex = accessor.titleIndex
-#doc_id = titleIndex.getIdByTitle("Пушкин, Александр Сергеевич")
+    from pywikiaccessor.title_index import TitleIndex
+    directory = "C:\\WORK\\science\\onpositive_data\\python\\"
+    accessor = WikiAccessor(directory)
+    docTypesIndex = DocumentTypeIndex(accessor)
+    docIds = docTypesIndex.getDocsOfType("substance")
+    titleIndex = accessor.getIndex(TitleIndex)
+    for docId in docIds:
+        print(titleIndex.getTitleById(docId))
+    doc_id = titleIndex.getIdByTitle("ALCAM")
+    print(docTypesIndex.getDocTypeById(doc_id))
 #hb = HeadersDBBuilder(accessor,list(docIds))
 #hb.build()
 #hb.preProcess()

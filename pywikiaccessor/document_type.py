@@ -48,7 +48,6 @@ for docType in DocumentTypeConfig.doctypeList:
     r = index.getDocsOfType(docType)
     print(docType+": "+str(len(r)))
 '''
-
 import pickle
 import json
 import re
@@ -217,7 +216,7 @@ class DocumentTypeIndex(wiki_file_index.WikiFileIndex):
         dtList = self.getDocTypeById(ident)
         if not dtList:
             return False 
-        return docType in dtList
+        return docType.lower() in dtList
 
     def getDocsOfType(self,docType):
         return self.dictionaries['doctype_DocTypesToId'][docType]
@@ -277,5 +276,28 @@ class DocumentTypeIndexBuilder (wiki_iterator.WikiIterator):
             if not self.dataToIds.get(docType,None):
                 self.dataToIds[docType] = set()
             self.dataToIds[docType].add(docId)
-            
 
+#if __name__ == '__main__':
+#from pywikiaccessor.wiki_accessor import WikiAccessor            
+#directory = "C:\\WORK\\science\\onpositive_data\\python\\"
+#accessor =  WikiAccessor(directory)
+ 
+#Построение:
+#bld = DocumentTypeIndexBuilder(accessor)
+#titleIndex = accessor.getIndex(TitleIndex)
+#docId = titleIndex.getIdByTitle('5-HT2B-рецептор')
+#bld = DocumentTypeIndexBuilder(accessor)
+#bld.preProcess()
+#bld.processDocument(docId)
+#print(bld.dataToTypes)
+#bld.build()
+
+#titleIndex = accessor.getIndex(TitleIndex)
+#index = DocumentTypeIndex(accessor)
+#r = index.getDocsOfType('software')
+#print(len(r))
+#import codecs
+#with codecs.open( directory+'titles_soft.txt', 'w', 'utf-8' ) as f:
+#    for docId in r:
+#        f.write(titleIndex.getTitleById(docId)+'\n')
+#    f.close()

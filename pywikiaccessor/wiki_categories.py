@@ -15,7 +15,8 @@ class CategoryIndex (wiki_file_index.WikiFileIndex):
             'cat_IdToChildrenIndex',
             'cat_IdToParentIndex',
             'cat_IdToPagesIndex',
-            'cat_PagesToCatIndex']
+            'cat_PagesToCatIndex',
+            'cat_CategoryPages']
                         
     def getTitleById(self, ident):
         if len(self.dictionaries['cat_IdToTitleIndex']) <= ident:

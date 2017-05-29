@@ -8,8 +8,9 @@ from collections import Counter
 from pywikiaccessor.one_opened import OneOpened
 
 class TextCleaner(metaclass= OneOpened):
-    def __init__(self,directory):
+    def __init__(self,directory,clearWrap = True):
         self.directory = directory
+        self.clearWrap = clearWrap
         self.__loadAbbrs()
     def __clearWraps(self,text):
         ind = 0
@@ -59,23 +60,25 @@ class TextCleaner(metaclass= OneOpened):
             workText = text.split("\n")
         else:
             workText = text
-        workText = self.__clearWraps(workText)
+        if self.clearWrap:
+            workText = self.__clearWraps(workText)
         workText = self.__clearAbbr(workText)
         workText = self.__concatStrings(workText)
         return workText
-            
+
+TEXT_STAT_KEYS = ["DOTS","COMMAS","NOUNS","VERBS","ADJS","FUNC","UNIQUE_NOUNS","UNIQUE_VERBS","UNIQUE_ADJS","UNIQUE_FUNC"]            
 class TextStat:
-    def __init__(self, directory,file=None, text=None):
-        cleaner = TextCleaner(directory)
-        self.directory = directory 
+    def __init__(self, directory=None,file=None, text=None, clearWrap=True):
         if file:
+            cleaner = TextCleaner(directory,clearWrap)
+            self.directory = directory
             self.file = file
             with codecs.open(directory+self.file, 'r', "utf-8") as myfile:
                 self.text=myfile.readlines()
             
             self.text = cleaner.clean(self.text)
         elif text:
-            self.text = cleaner.clean(text)
+            self.text = text
         else:
             print ('There is no text or file to parse')
             self.text = ''        
@@ -206,7 +209,7 @@ class TextStat:
         surfaceSlice = self.getSlice(parsedTokens,len(parsedTokens))
         return surfaceSlice
     
-    def buildPOSSurface(self, minWindowSize = 10, maxWindowSize = 1000, step=5):
+    def buildPOSSurface(self, minWindowSize = 10, maxWindowSize = 1000, step=5,saveToFile = True):
         parsedTokens = self.prepareText(self.text)
         
         self.data = {
@@ -226,9 +229,11 @@ class TextStat:
             surfaceSlice = self.getSlice(parsedTokens,windowSize)
             for key in surfaceSlice: 
                 self.data[key][windowSize] = surfaceSlice[key]
-
-        with open(self.directory+self.file +'-surface.pcl', 'wb') as f:
-            pickle.dump(self.data, f, pickle.HIGHEST_PROTOCOL)
+        if saveToFile:        
+            with open(self.directory+self.file +'-surface.pcl', 'wb') as f:
+                pickle.dump(self.data, f, pickle.HIGHEST_PROTOCOL)
+        else:
+            return pickle.dumps(self.data, pickle.HIGHEST_PROTOCOL)
 
 def normalizeMaxMin(data):
     if len(data) == 0:
@@ -284,7 +289,7 @@ def normalize(data):
 #file = "sule1.txt"
 #textStat = TextStat(directory+file)
 #print(textStat.text)
-#from pytextutils.formal_grammar import HeaderMatcher 
+#from pytextutils.grammar_base import HeaderMatcher 
 #ts = TokenSplitter()
 #ts.split(textStat.text)
 #tokens = ts.getTokenArray()

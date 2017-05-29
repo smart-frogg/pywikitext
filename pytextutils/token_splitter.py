@@ -19,18 +19,20 @@ class Token:
                  spaceLeft, spaceRight, 
                  newlineLeft, newlineRight, 
                  tokenType, tokenNum):
+        self.flags = {}
         self.token = token
         self.startPos = startPos
         self.endPos = endPos 
-        self.spaceLeft = spaceLeft
-        self.spaceRight = spaceRight 
-        self.newlineLeft = newlineLeft
-        self.newlineRight = newlineRight 
+        self.setFlag('spaceLeft',spaceLeft)
+        self.setFlag('spaceRight', spaceRight) 
+        self.setFlag('newlineLeft', newlineLeft)
+        self.setFlag('newlineRight', newlineRight) 
         self.tokenType = tokenType
         self.tokenNum = tokenNum
         self.additionalInfo = {}
         self.POS = None
-        self.flags = {}
+        self.internalTokens = None
+
     def __str__(self):
         return str(self.tokenType) + ' ' + self.token  
     def setFlag(self,flag,value=True):
@@ -134,7 +136,9 @@ class TokenSplitter:
         self.tokenType = TYPE_TOKEN
         self.tokenNum = 0
         pos = 0
-        for letter in text:
+        iLetter = 0
+        while iLetter < len(text):
+            letter = text[iLetter]
             if (self.tokenType == TYPE_SIGN): # Add sign
                 if (letter in SPACES):
                     self.hasSpaceRight = True
@@ -156,14 +160,18 @@ class TokenSplitter:
             
             if (letter in SPACES): # Add when not sign and find space
                 self.hasSpaceRight = True
-                if (letter == '\n'):
-                    self.hasNewlineRight = True
+                while iLetter < len(text) and text[iLetter] in SPACES: 
+                    if (text[iLetter] == '\n'):
+                        self.hasNewlineRight = True
+                    iLetter +=1 
+                iLetter -= 1       
+                pos = iLetter 
                 if (len(self.curWord)>0):
                     self.endPos = pos
                     self.addToken()
+                    self.hasSpaceLeft = self.hasSpaceRight
+                    self.hasNewlineLeft = self.hasNewlineRight
                 self.startPos = pos+1
-                self.hasSpaceLeft = self.hasSpaceRight
-                self.hasNewlineLeft = self.hasNewlineRight
                 self.hasSpaceRight = False
                 self.hasNewlineRight = False    
             elif (letter in SIGNS): # Create word with sign
@@ -181,7 +189,8 @@ class TokenSplitter:
             else:                               #Add letter to word
                 self.curWord += letter
                 self.tokenType = TYPE_TOKEN
-            pos += 1    
+            pos += 1
+            iLetter += 1    
 
         if (len(self.curWord)>0):
             self.endPos = pos
