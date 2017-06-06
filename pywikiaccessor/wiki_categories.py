@@ -31,9 +31,6 @@ class CategoryIndex (wiki_file_index.WikiFileIndex):
         res = set()
         subCats = self.dictionaries['cat_IdToChildrenIndex'][catId]
         res.update(subCats)
-        for sc in res:
-            print(ci.getTitleById(sc))
-        print ("----") 
         for cat in subCats:
             res.update(self.getSubCatAsSet(cat))
         return res
@@ -114,8 +111,8 @@ class CategoryFromCatlinksBuilder:
         docId = data[0]
         parentCatId = self.getOrAdd(data[1])
         if len(data)==7 and data[6] is 'subcat':
-            catId = self.catPagesRenumerer.get(docId,None)
-            if catId:
+            catId = self.catPagesRenumerer.get(docId,"None")
+            if catId is "None":
                 self.toParentDict[catId].append(parentCatId)
                 self.toChildrenDict[parentCatId].append(catId)
         elif len(data)==7 and data[6] is 'file':
