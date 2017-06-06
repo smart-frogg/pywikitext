@@ -86,8 +86,9 @@ if __name__ =="__main__":
     from pywikiaccessor.wiki_accessor import WikiAccessor
     directory = "C:\\WORK\\science\\onpositive_data\\python\\"
     accessor = WikiAccessor(directory)
-    TextVisualizator(accessor,'miph_',output_type="div").getStat()
+    #TextVisualizator(accessor,'miph_',output_type="div").getStat()
     #PCAWikiVisualizator(accessor,'miph_').getHists("UNIQUE_VERBS")
+
     #PCAWikiVisualizator(accessor,'miph_').getHists("VERBS")
     #PCAWikiVisualizator(accessor,'miph_').getHists("UNIQUE_NOUNS")
     #PCAWikiVisualizator(accessor,'miph_').getRelativeHists("UNIQUE_VERBS")

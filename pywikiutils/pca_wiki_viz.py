@@ -97,7 +97,7 @@ class PCAWikiVisualizator:
     def wikiHists(self,file,metric):
         self.formDataHist(file,metric)
         colors = ['#1f78b4', '#33a02c','#e31a1c','#ff7f00']
-        fig = ff.create_distplot(self.X, self.names, bin_size=.05,colors=colors)    
+        fig = ff.create_distplot(self.X, self.names, bin_size=.02,colors=colors)    
         #print(py.plot(fig, image='jpeg', image_filename='test_hist'))
         if (self.outputType == 'file'):
             print(py.plot(fig,filename='hist')) 
@@ -109,7 +109,8 @@ if __name__ =="__main__":
     from pywikiaccessor.wiki_accessor import WikiAccessor
     directory = "C:\\WORK\\science\\onpositive_data\\python\\"
     accessor = WikiAccessor(directory)
-    PCAWikiVisualizator(accessor,'miph_',output_type="div").getStat()
+    PCAWikiVisualizator(accessor,'miph_').getHists("ADJS")
+    #PCAWikiVisualizator(accessor,'miph_',output_type="div").getStat()
     #PCAWikiVisualizator(accessor,'miph_').getHists("UNIQUE_VERBS")
     #PCAWikiVisualizator(accessor,'miph_').getHists("VERBS")
     #PCAWikiVisualizator(accessor,'miph_').getHists("UNIQUE_NOUNS")

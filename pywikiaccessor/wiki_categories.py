@@ -31,6 +31,9 @@ class CategoryIndex (wiki_file_index.WikiFileIndex):
         res = set()
         subCats = self.dictionaries['cat_IdToChildrenIndex'][catId]
         res.update(subCats)
+        for sc in res:
+            print(ci.getTitleById(sc))
+        print ("----") 
         for cat in subCats:
             res.update(self.getSubCatAsSet(cat))
         return res
@@ -64,6 +67,7 @@ class CategoryIndexBuilder:
         self.fromPagesBuilder = CategoryFromPagesBuilder(accessor)
         self.fromCatlinksBuilder = CategoryFromCatlinksBuilder(accessor)
     def build(self):
+        self.fromPagesBuilder.preProcess()
         self.fromPagesBuilder.build()
         self.fromCatlinksBuilder.build(self.fromPagesBuilder)
         
@@ -80,6 +84,7 @@ class CategoryFromCatlinksBuilder:
             self.toPagesDict = dictionaries.toPagesDict
             self.toPageCatDict = dictionaries.toPageCatDict
             self.catPagesRenumerer = dictionaries.catPagesRenumerer
+            self.catCount = len(self.toTitleDict)
         else:
             self.toTitleDict = []
             self.toIdDict = {}
@@ -88,14 +93,17 @@ class CategoryFromCatlinksBuilder:
             self.toPagesDict = []
             self.toPageCatDict = {}
             self.catPagesRenumerer = {}
+            self.catCount = 0
         self.count = 0
         wl.parse(self.accessor.directory+"categorylinks.sql",self)
         saveDictionaries(self)
     def getOrAdd(self,title):
-        clearTitle = title.lower().replace("_"," ")
-        catId = self.toIdDict.get(clearTitle,None)
-        if not catId:
-            catId = len(self.toIdDict)
+        clearTitle = title.lower().replace("_"," ").replace("ё","е")
+        catId = self.toIdDict.get(clearTitle,"None")
+       
+        if catId is "None":
+            catId = self.catCount
+            self.catCount+=1
             self.toIdDict[clearTitle] = catId
             self.toTitleDict.append(clearTitle)
             self.toParentDict.append([])
@@ -103,16 +111,20 @@ class CategoryFromCatlinksBuilder:
             self.toPagesDict.append([])
         return catId     
     def consume(self,data):    
-        docId = data[0];
+        docId = data[0]
         parentCatId = self.getOrAdd(data[1])
-        if data[1] in ['page','file']:
-            self.toPagesDict[parentCatId].append(docId)
-            self.toPageCatDict[docId].append(parentCatId)
-        else:
+        if len(data)==7 and data[6] is 'subcat':
             catId = self.catPagesRenumerer.get(docId,None)
             if catId:
                 self.toParentDict[catId].append(parentCatId)
                 self.toChildrenDict[parentCatId].append(catId)
+        elif len(data)==7 and data[6] is 'file':
+            pass
+        else:
+            self.toPagesDict[parentCatId].append(docId)
+            if not self.toPageCatDict.get(docId,None):
+                self.toPageCatDict[docId] = []
+            self.toPageCatDict[docId].append(parentCatId)
         self.count+=1
         if self.count%10000 == 0:
             print("Processed "+str(self.count)+" categories")        
@@ -136,7 +148,7 @@ def saveDictionaries(dictionaries):
 class CategoryFromPagesBuilder (wiki_iterator.WikiIterator):
     def __init__(self, accessor):
         self.CODE = 'utf-8'
-        super(CategoryFromPagesBuilder, self).__init__(accessor, 1000000)
+        super(CategoryFromPagesBuilder, self).__init__(accessor, 100000)
 
     def processSave(self,articlesCount):
         return
@@ -154,6 +166,7 @@ class CategoryFromPagesBuilder (wiki_iterator.WikiIterator):
         self.toPagesDict = []
         self.toPageCatDict = {}
         self.catPagesRenumerer = {}
+        self.catCount = 0
         self.categoryPattern = re.compile("\[\[[ \t]*категория:([^\]\|]*)\]\]")
         self.titleIndex = self.accessor.getIndex(wiki_base_index.WikiTitleBaseIndex)
             
@@ -162,9 +175,10 @@ class CategoryFromPagesBuilder (wiki_iterator.WikiIterator):
 
     def getOrAdd(self,title):
         clearTitle = title.lower().replace("_"," ")
-        catId = self.toIdDict.get(clearTitle,None)
-        if not catId:
-            catId = len(self.toIdDict)
+        catId = self.toIdDict.get(clearTitle,"None")
+        if catId is "None":
+            catId = self.catCount
+            self.catCount+=1
             self.toIdDict[clearTitle] = catId
             self.toTitleDict.append(clearTitle)
             self.toParentDict.append([])
@@ -196,7 +210,7 @@ class CategoryFromPagesBuilder (wiki_iterator.WikiIterator):
 #directory = "C:\\WORK\\science\\onpositive_data\\python\\"
 #accessor =  wiki_accessor.WikiAccessor(directory)
 #titleIndex = accessor.getIndex(title_index.TitleIndex)
-#docId = titleIndex.getIdByTitle('Ван Боксхорн, Маркус')
+#docId = titleIndex.getIdByTitle("родившиеся в теколотлане")
 #bld = CategoryIndexBuilder(accessor)
 #bld.preProcess()
 #bld.processDocument(docId)
@@ -204,3 +218,34 @@ class CategoryFromPagesBuilder (wiki_iterator.WikiIterator):
 #print(bld.toTitleDict)
 #bld.build()
 
+#ci = CategoryIndex(accessor)
+#print(ci.dictionaries['cat_IdToTitleIndex'][ci.dictionaries['cat_TitleToIdIndex']["изображения:введенское кладбище"]])
+
+#titles = set()
+#for c in range(len(ci.dictionaries['cat_IdToTitleIndex'])):
+#    if ci.dictionaries['cat_IdToTitleIndex'][c] in titles:
+#        print (c)
+#        print (ci.dictionaries['cat_IdToTitleIndex'][c])
+#    titles.add(ci.dictionaries['cat_IdToTitleIndex'][c])
+    
+
+#cid = ci.getIdByTitle("дубляж")
+#subcats = ci.getSubCatAsSet(cid)
+#for sc in subcats:
+#    print(ci.getTitleById(sc)) 
+
+#print('------------')
+
+#cid = ci.getIdByTitle("актёры озвучивания по алфавиту")
+#print(cid)
+#subcats = ci.getAllParentsAsSet(cid)
+#for sc in subcats:
+#    print(ci.getTitleById(sc)) 
+#print('------------')
+#cid = ci.getIdByTitle("родившиеся в теколотлане")
+#print(cid)
+#pids = ci.getAllParentsAsSet(cid)
+#for sc in pids:
+#    print(ci.getTitleById(sc))
+
+ 

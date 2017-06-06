@@ -9,7 +9,7 @@ from pywikiaccessor.title_index import TitleIndex
 from pywikiaccessor.document_type import DocumentTypeIndex
 from pywikiaccessor.wiki_tokenizer import WikiTokenizer
 from pywikiaccessor.wiki_base_index import WikiBaseIndex
-from pytextutils.text_stat import normalize, TextStat, normalizeMaxMin, TEXT_STAT_KEYS
+from pytextutils.text_stat import normalize, normalizeSum, TextStat, normalizeMaxMin, TEXT_STAT_KEYS
 from pywikiutils.wiki_headers import HeadersFileIndex,HeadersFileBuilder
 
 import numpy as np
@@ -265,7 +265,7 @@ class StatBuilder(AbstractFragmentIterator):
         rawStat = ts.buildPOSStat()
         for key in rawStat:
             rawStat[key] = rawStat[key][0] 
-        stat = normalize(rawStat)
+        stat = normalizeSum(rawStat,["DOTS","COMMAS","NOUNS","VERBS","ADJS","FUNC"])
         return stat
     def processDocument(self, fType, headerId, docId):
         text = self.headerIndex.getDocSection(docId, headerId)
@@ -402,6 +402,14 @@ class POSListIndex(WikiFileIndex):
     def getDictionaryFiles(self): 
         return ['hists','tfidf','tf','tfAll']
     
+    def getUniqueNounsCount(self,fType):
+        wordDict = self.dictionaries['hists'][fType]['NOUN']
+        unoqueCount = len(list(wordDict.values()))
+        return unoqueCount
+    def getTotalNounsCount(self,fType):
+        wordDict = self.dictionaries['hists'][fType]['NOUN']
+        fullCount = sum(list(wordDict.values()))
+        return fullCount
     def getFunctionalNouns(self,fType, part):
         wordDict = self.dictionaries['hists'][fType]['NOUN']
         fullCount = sum(list(wordDict.values()))
@@ -570,13 +578,23 @@ def getStat():
     print('Articles in Wikipedia:' + str(bi.getCount()))
     pages = getArticles(['Математика','Информатика','Физика'],accessor)
     print('Articles in Subset:' + str(len(pages)))
-    
+
+def getStatByNouns():
+    directory = "C:\\WORK\\science\\onpositive_data\\python\\"
+    accessor =  WikiAccessor(directory)
+    pi = POSListIndex(accessor,'miph_')
+    for fType in pi.getFunctionalTypes():
+        print (fType)
+        print("Total nouns: "+str(pi.getTotalNounsCount(fType)))
+        print("Total nouns: "+str(pi.getUniqueNounsCount(fType)))
+        print("Good nouns count: "+str(len(pi.getFunctionalNouns(fType, 0.5))))
+        
     
 if __name__ =="__main__":
     #buildHeaders(['Математика','Информатика','Физика'],'miph_')
     #buildPOSList ('miph_')
     #buildFragments('miph_')
-    getStat()
+    getStatByNouns()
     #buildStat('miph_')
 
 

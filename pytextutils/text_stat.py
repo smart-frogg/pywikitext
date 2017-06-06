@@ -275,7 +275,37 @@ def normalize(data):
         normData = []
         for d in data:
             normData.append((d)/(max_value))
-    return normData 
+    return normData
+def normalizeSum(data, keys=None):
+    if len(data) == 0:
+        return []
+    if not type(data) is list:
+        if keys:
+            dataList = []
+            for key in keys:
+                dataList.append(data[key])
+        else:
+            dataList = list(data.values())
+    else:    
+        if keys:
+            dataList = []
+            for key in keys:
+                dataList.append(data[key])
+        else:
+            dataList = data
+    sum_value = sum(dataList)
+    if sum_value == 0:
+        return data
+    normData = {}
+    if not type(data) is list:
+        normData = {}
+        for key in data:
+            normData[key] = (data[key])/(sum_value)
+    else:
+        normData = []
+        for d in data:
+            normData.append((d)/(sum_value))
+    return normData  
 #directory = "C:/WORK/science/onpositive_data/python/"
 #tc = TextCleaner(directory)
 #tc1 = TextCleaner(directory)
