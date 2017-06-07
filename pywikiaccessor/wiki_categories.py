@@ -30,8 +30,12 @@ class CategoryIndex (wiki_file_index.WikiFileIndex):
     def getSubCatAsSet(self,catId):
         res = set()
         subCats = self.dictionaries['cat_IdToChildrenIndex'][catId]
-        res.update(subCats)
+        #res.update(subCats)
         for cat in subCats:
+            if cat in res or cat == catId:
+                continue
+            res.add(cat)
+            print(self.getTitleById(cat))
             res.update(self.getSubCatAsSet(cat))
         return res
 
@@ -164,7 +168,7 @@ class CategoryFromPagesBuilder (wiki_iterator.WikiIterator):
         self.toPageCatDict = {}
         self.catPagesRenumerer = {}
         self.catCount = 0
-        self.categoryPattern = re.compile("\[\[[ \t]*категория:([^\]\|]*)\]\]")
+        self.categoryPattern = re.compile("\[\[[ \t]*категория:([^\]\|]*)(\|.*)?\]\]")
         self.titleIndex = self.accessor.getIndex(wiki_base_index.WikiTitleBaseIndex)
             
     def clear(self):
@@ -202,20 +206,21 @@ class CategoryFromPagesBuilder (wiki_iterator.WikiIterator):
             self.toPagesDict[parentCatId].append(docId)
             self.toPageCatDict[docId].append(parentCatId)
             
-#from pywikiaccessor import wiki_accessor
-#from pywikiaccessor import title_index
-#directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-#accessor =  wiki_accessor.WikiAccessor(directory)
-#titleIndex = accessor.getIndex(title_index.TitleIndex)
-#docId = titleIndex.getIdByTitle("родившиеся в теколотлане")
-#bld = CategoryIndexBuilder(accessor)
+from pywikiaccessor import wiki_accessor
+from pywikiaccessor import title_index
+directory = "C:\\WORK\\science\\onpositive_data\\python\\"
+accessor =  wiki_accessor.WikiAccessor(directory)
+titleIndex = accessor.getIndex(title_index.TitleIndex)
+#docId = titleIndex.getIdByTitle("Категория:Фильмы по первоисточникам для сценария")
+bld = CategoryIndexBuilder(accessor)
+#bld = CategoryFromPagesBuilder(accessor)
 #bld.preProcess()
 #bld.processDocument(docId)
 #print(bld.toPagesDict)
 #print(bld.toTitleDict)
 #bld.build()
 
-#ci = CategoryIndex(accessor)
+ci = CategoryIndex(accessor)
 #print(ci.dictionaries['cat_IdToTitleIndex'][ci.dictionaries['cat_TitleToIdIndex']["изображения:введенское кладбище"]])
 
 #titles = set()
@@ -226,10 +231,10 @@ class CategoryFromPagesBuilder (wiki_iterator.WikiIterator):
 #    titles.add(ci.dictionaries['cat_IdToTitleIndex'][c])
     
 
-#cid = ci.getIdByTitle("дубляж")
-#subcats = ci.getSubCatAsSet(cid)
-#for sc in subcats:
-#    print(ci.getTitleById(sc)) 
+cid = ci.getIdByTitle("Фильмы")
+subcats = ci.getSubCatAsSet(cid)
+for sc in subcats:
+    print(ci.getTitleById(sc)) 
 
 #print('------------')
 
