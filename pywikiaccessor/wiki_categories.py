@@ -42,8 +42,10 @@ class CategoryIndex (wiki_file_index.WikiFileIndex):
     def getAllParentsAsSet(self,catId):
         res = set()
         parCats = self.dictionaries['cat_IdToParentIndex'][catId]
-        res.update(parCats)
+        #res.update(subCats)
         for cat in parCats:
+            if cat in res or cat == catId:
+                continue
             res.update(self.getAllParentsAsSet(cat))
         return res
     
