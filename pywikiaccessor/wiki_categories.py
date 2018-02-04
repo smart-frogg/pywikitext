@@ -2,9 +2,10 @@
 import pickle
 import re
 
-from pywikiaccessor import wiki_iterator, wiki_file_index, wiki_base_index, wiki_sql_loader
+from pywikiaccessor.wiki_core import WikiIterator, WikiFileIndex, WikiBaseIndex,WikiTitleBaseIndex,WikiConfiguration,TitleIndex
+from pywikiaccessor.wiki_sql_loader import WikiSqlLoader
 
-class CategoryIndex (wiki_file_index.WikiFileIndex):
+class CategoryIndex (WikiFileIndex):
     def __init__(self, wikiAccessor):
         super(CategoryIndex, self).__init__(wikiAccessor)
 
@@ -29,14 +30,16 @@ class CategoryIndex (wiki_file_index.WikiFileIndex):
 
     def getSubCatAsSet(self,catId):
         res = set()
+        return self._getSubCatAsSet(catId,res)
+    def _getSubCatAsSet(self,catId,res):   
         subCats = self.dictionaries['cat_IdToChildrenIndex'][catId]
         #res.update(subCats)
         for cat in subCats:
             if cat in res or cat == catId:
                 continue
             res.add(cat)
-            print(self.getTitleById(cat))
-            res.update(self.getSubCatAsSet(cat))
+            #print(self.getTitleById(cat))
+            res.update(self._getSubCatAsSet(cat,res))
         return res
 
     def getAllParentsAsSet(self,catId):
@@ -78,7 +81,7 @@ class CategoryFromCatlinksBuilder:
     def __init__(self, accessor):
         self.accessor = accessor
     def build(self, dictionaries = None):
-        wl = wiki_sql_loader.WikiSqlLoader()
+        wl = WikiSqlLoader()
         if dictionaries:
             self.toTitleDict = dictionaries.toTitleDict
             self.toIdDict = dictionaries.toIdDict
@@ -148,7 +151,7 @@ def saveDictionaries(dictionaries):
     with open(dictionaries.getFullFileName('cat_PagesToCatIndex.pcl'), 'wb') as f:
         pickle.dump(dictionaries.toPageCatDict, f, pickle.HIGHEST_PROTOCOL)
                 
-class CategoryFromPagesBuilder (wiki_iterator.WikiIterator):
+class CategoryFromPagesBuilder (WikiIterator):
     def __init__(self, accessor):
         self.CODE = 'utf-8'
         super(CategoryFromPagesBuilder, self).__init__(accessor, 100000)
@@ -171,7 +174,7 @@ class CategoryFromPagesBuilder (wiki_iterator.WikiIterator):
         self.catPagesRenumerer = {}
         self.catCount = 0
         self.categoryPattern = re.compile("\[\[[ \t]*категория:([^\]\|]*)(\|.*)?\]\]")
-        self.titleIndex = self.accessor.getIndex(wiki_base_index.WikiTitleBaseIndex)
+        self.titleIndex = self.accessor.getIndex(WikiTitleBaseIndex)
             
     def clear(self):
         return 
@@ -208,13 +211,11 @@ class CategoryFromPagesBuilder (wiki_iterator.WikiIterator):
             self.toPagesDict[parentCatId].append(docId)
             self.toPageCatDict[docId].append(parentCatId)
             
-from pywikiaccessor import wiki_accessor
-from pywikiaccessor import title_index
-directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-accessor =  wiki_accessor.WikiAccessor(directory)
-titleIndex = accessor.getIndex(title_index.TitleIndex)
+#directory = "C:/WORK/science/python-data/"
+#accessor = WikiConfiguration(directory)
+#titleIndex = accessor.getIndex(TitleIndex)
 #docId = titleIndex.getIdByTitle("Категория:Фильмы по первоисточникам для сценария")
-bld = CategoryIndexBuilder(accessor)
+#bld = CategoryIndexBuilder(accessor)
 #bld = CategoryFromPagesBuilder(accessor)
 #bld.preProcess()
 #bld.processDocument(docId)
@@ -222,7 +223,7 @@ bld = CategoryIndexBuilder(accessor)
 #print(bld.toTitleDict)
 #bld.build()
 
-ci = CategoryIndex(accessor)
+#ci = CategoryIndex(accessor)
 #print(ci.dictionaries['cat_IdToTitleIndex'][ci.dictionaries['cat_TitleToIdIndex']["изображения:введенское кладбище"]])
 
 #titles = set()
@@ -233,10 +234,10 @@ ci = CategoryIndex(accessor)
 #    titles.add(ci.dictionaries['cat_IdToTitleIndex'][c])
     
 
-cid = ci.getIdByTitle("Фильмы")
-subcats = ci.getSubCatAsSet(cid)
-for sc in subcats:
-    print(ci.getTitleById(sc)) 
+#cid = ci.getIdByTitle("Фильмы")
+#subcats = ci.getSubCatAsSet(cid)
+#for sc in subcats:
+#    print(ci.getTitleById(sc)) 
 
 #print('------------')
 

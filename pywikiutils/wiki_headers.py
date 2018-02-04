@@ -2,9 +2,7 @@
 import pymysql
 from pytextutils.token_splitter import ALL_CYR_LETTERS
 from pywikiaccessor.wiki_tokenizer import WikiTokenizer
-from pywikiaccessor.wiki_accessor import WikiAccessor
-from pywikiaccessor.wiki_iterator import WikiIterator
-from pywikiaccessor.wiki_file_index import WikiFileIndex
+from pywikiaccessor.wiki_core import WikiConfiguration,WikiIterator,WikiFileIndex,WikiBaseIndex
 from pywikiaccessor.document_type import DocumentTypeIndex
 from pywikiaccessor.redirects_index import RedirectsIndex
 import re
@@ -122,7 +120,6 @@ class HeadersFileBuilder (WikiIterator):
                 self.headerDocuments[h['header']] = []
             self.headerDocuments[h['header']].append(docId)
 
-from pywikiaccessor.wiki_base_index import WikiBaseIndex
 # Файловый индекс заголовков             
 class HeadersFileIndex(WikiFileIndex):
     def __init__(self, wikiAccessor,prefix =''):
@@ -346,15 +343,48 @@ class HeadersDBIndex:
         for element in self.dbCursor.fetchall():
             res.append ({'id': element[0],'text': element[1],'cnt': element[2]})
         return res    
-  
+
+from abc import abstractmethod
+class DocumentByHeadersIterator (WikiIterator):
+    def __init__(self, accessor, docIds, headerIndexPrefix):
+        super(DocumentByHeadersIterator, self).__init__(accessor, 100, docIds)
+        self.redirects = self.accessor.getIndex(RedirectsIndex) 
+        self.headerIndex = HeadersFileIndex(accessor,headerIndexPrefix)
+        self.prefix = headerIndexPrefix
+
+    @abstractmethod
+    def processDocumentStart(self, docId):
+        pass
+
+    @abstractmethod
+    def processDocumentEnd(self, docId):
+        pass
+
+    @abstractmethod
+    def processFragment(self, docId, headerId):
+        pass
+        
+    def processDocument(self, docId):
+        #if self.redirects.isRedirect(docId):
+        #    return
+        #if self.doctypeIndex.isDocType(docId,'wiki_stuff'):
+        #    return
+        headers = self.headerIndex.headersByDoc(docId)
+        self.processDocumentStart(docId)
+        for h in headers:
+            self.processFragment(docId, h)
+        self.processDocumentEnd(docId)
+            
+            
+          
 if __name__ == "__main__":      
 #regex1 = re.compile('\n[ \t]*==([^=]*)==[ \t\r]*\n')
 #text = " kdkd\n == kdkd==\n"
 #match = regex1.search(text)
 #print(match.end())
-    from pywikiaccessor.title_index import TitleIndex
+    from pywikiaccessor.wiki_core import TitleIndex
     directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-    accessor = WikiAccessor(directory)
+    accessor = WikiConfiguration(directory)
     docTypesIndex = DocumentTypeIndex(accessor)
     docIds = docTypesIndex.getDocsOfType("substance")
     titleIndex = accessor.getIndex(TitleIndex)

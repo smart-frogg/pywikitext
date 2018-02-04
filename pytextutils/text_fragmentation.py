@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 from pytextutils.token_splitter import TokenSplitter, POSTagger
-from pytextutils.grammar_base import FormalLanguagesMatcher,  SentenceSplitter, PatternMatcher
+from pytextutils.grammar_base import FormalLanguagesMatcher,  SentenceSplitter, PatternMatcher, genComplexToken
 from pytextutils.grammar_formal import HeaderMatcher
 from pytextutils.grammar_lexic import DefisWordsBuilder, InitialsWordsBuilder
 from pywikiutils.science_patterns import POSListIndex,CollocationGrammars,calcHist
-from pywikiaccessor.wiki_accessor import WikiAccessor
+from pywikiaccessor.wiki_core import WikiConfiguration
 import numpy as np
 from math import sqrt
 from collections import Counter
@@ -41,7 +41,7 @@ class TextFragmentator:
     
     def findPatterns(self,fType,sentence):
         patternsWeight = 0
-        if not sentence.internalTokens:
+        if sentence is None or not sentence.internalTokens:
             return patternsWeight
         patterns = self.collocatonsGrammars.getGrammars(fType,border = 0.00005)
         for pattern in patterns:
@@ -74,6 +74,42 @@ class TextFragmentator:
                 'lexical': lexicalSimilarity,
             }
         
+    def estimateFullText(self,text,border = 0.1):
+        tokens = self.tokenSplitter.split(text)
+        if len(tokens) == 0:
+            return
+        self.newTokens = []
+        self.posTagger.posTagging(tokens)
+        self.defisWordsBuilder.combineTokens(tokens)
+        self.initialsWordsBuilder.combineTokens(tokens)
+        self.headersMatcher.combineTokens(tokens)
+        self.formalLanguagesMatcher.combineTokens(tokens)
+
+        lexicalEstimations = np.zeros((len(self.fragmentTypes)),dtype=np.float)
+        patternEstimations = np.zeros((len(self.fragmentTypes)),dtype=np.float)
+        totalEstimations = np.zeros((len(self.fragmentTypes)),dtype=np.float)
+        sentence = genComplexToken(tokens, 0, len(tokens), embedNewToken = False)
+        hists =  calcHist(tokens)['VERB']
+        for fTypeInd in range(len(self.fragmentTypes)):
+            fType = self.fragmentTypes[fTypeInd]
+            oneEstimation = self.estimate(fType, sentence,hists)
+            lexicalEstimations[fTypeInd] = oneEstimation['lexical']
+            patternEstimations[fTypeInd] = oneEstimation['pattern']
+        totalEstimations = patternEstimations + 0.5*lexicalEstimations
+        # otalEstimations = totalEstimations / np.amax(totalEstimations)
+        orderedLexicalTypes = np.argsort(lexicalEstimations)        
+        orderedPatternTypes = np.argsort(patternEstimations)        
+        orderedTotalTypes = np.argsort(totalEstimations) 
+        estimation = {
+            'lexical':{'values':lexicalEstimations,"order":orderedLexicalTypes},
+            'pattern':{'values':patternEstimations,"order":orderedPatternTypes},
+            'total':{'values':totalEstimations,"order":orderedTotalTypes}
+            } 
+        res = {'lexical':[],'pattern':[],'total':[]}
+        for criteria in estimation:
+            for fTypeInd in estimation[criteria]['order']:
+                res[criteria].append((self.fragmentTypes[fTypeInd],estimation[criteria]['values'][fTypeInd]))
+        return res 
     def genFragments(self,text,border = 0.1):
         tokens = self.tokenSplitter.split(text)
         self.newTokens = []
@@ -87,7 +123,6 @@ class TextFragmentator:
         lexicalEstimations = np.zeros((len(tokens),len(self.fragmentTypes)),dtype=np.float)
         patternEstimations = np.zeros((len(tokens),len(self.fragmentTypes)),dtype=np.float)
         totalEstimations = np.zeros((len(tokens),len(self.fragmentTypes)),dtype=np.float)
-        
         for ind in range(len(tokens)):
             #print(tokens[ind].token)
             if not tokens[ind].internalTokens:
@@ -263,7 +298,7 @@ class TextFragmentator:
 
 if __name__ == '__main__':            
     directory = "C:/WORK/science/onpositive_data/python/"
-    accessor =  WikiAccessor(directory)
+    accessor =  WikiConfiguration(directory)
     text =       '''
     Элементарный перцептрон состоит из элементов трёх типов: S-элементов, A-элементов и одного R-элемента. S-элементы — это слой сенсоров или рецепторов. В физическом воплощении они соответствуют, например, светочувствительным клеткам сетчатки глаза или фоторезисторам матрицы камеры. Каждый рецептор может находиться в одном из двух состояний — покоя или возбуждения, и только в последнем случае он передаёт единичный сигнал в следующий слой, ассоциативным элементам.
 A-элементы называются ассоциативными, потому что каждому такому элементу, как правило, соответствует целый набор (ассоциация) S-элементов. A-элемент активизируется, как только количество сигналов от S-элементов на его входе превысило некоторую величину θ[nb 5]. Таким образом, если набор соответствующих S-элементов располагается на сенсорном поле в форме буквы «Д», A-элемент активизируется, если достаточное количество рецепторов сообщило о появлении «белого пятна света» в их окрестности, то есть A-элемент будет как бы ассоциирован с наличием/отсутствием буквы «Д» в некоторой области.

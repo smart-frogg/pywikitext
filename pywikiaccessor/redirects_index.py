@@ -2,14 +2,14 @@
 import pickle
 import re
 
-from pywikiaccessor import wiki_iterator, wiki_file_index
+from pywikiaccessor.wiki_core import WikiIterator, WikiFileIndex, TitleIndex
 
 class RedirectPageFabric:
     @staticmethod
     def createRedirectPage(toId, anchor):
         return {"toId" : toId, "anchor" : anchor}
 
-class RedirectsIndex (wiki_file_index.WikiFileIndex): 
+class RedirectsIndex (WikiFileIndex): 
     def __init__(self, wikiAccessor):
         super(RedirectsIndex, self).__init__(wikiAccessor)
         self.data = self.dictionaries["redirects"]
@@ -28,15 +28,13 @@ class RedirectsIndex (wiki_file_index.WikiFileIndex):
     def getName(self):
         return "redirects"
 
-from pywikiaccessor.title_index import TitleIndex
-    
-class RedirectsIndexBuilder (wiki_iterator.WikiIterator):
+class RedirectsIndexBuilder (WikiIterator):
     
     def __init__(self, accessor):
         self.CODE = 'utf-8'
-        self.simpleRedirect = re.compile('\#(redirect|перенаправление)([^\[])*\[\[([^\]]+)\]\]', re.VERBOSE)
-        self.categoryTitle = re.compile('^Категория:(.+)', re.VERBOSE)
-        self.complexRedirect = re.compile('\#(redirect|перенаправление)([^\[])\[\[([^\]\#]+)\#([^\]]+)\]\]', re.VERBOSE)  
+        self.simpleRedirect = re.compile('\#(redirect|перенаправление)([^\[])*\[\[([^\]]+)\]\]')
+        self.categoryTitle = re.compile('^Категория:(.+)')
+        self.complexRedirect = re.compile('\#(redirect|перенаправление)([^\[])\[\[([^\]\#]+)\#([^\]]+)\]\]')  
         self.titleIndex = TitleIndex(accessor)
         super(RedirectsIndexBuilder, self).__init__(accessor, 10000)
 

@@ -57,7 +57,7 @@ import re
 from abc import ABCMeta, abstractmethod
 from pywikiaccessor.wiki_categories import CategoryIndex
 from pywikiaccessor.redirects_index import RedirectsIndex
-from pywikiaccessor.title_index import TitleIndex
+from pywikiaccessor.wiki_core import TitleIndex
 
 REDIRECT = "redirect"
 
@@ -200,9 +200,9 @@ class ANTLRTemplateParser (WikiDocTypeParser):
         return result        
 '''
                                     
-from pywikiaccessor import wiki_iterator,wiki_file_index
+from pywikiaccessor.wiki_core import WikiIterator,WikiFileIndex
 # Индекс типов документов
-class DocumentTypeIndex(wiki_file_index.WikiFileIndex):
+class DocumentTypeIndex(WikiFileIndex):
     def __init__(self, wikiAccessor):
         super(DocumentTypeIndex, self).__init__(wikiAccessor)
     
@@ -235,7 +235,7 @@ class DocumentTypeIndex(wiki_file_index.WikiFileIndex):
         return "Document types"
 
 # Билдер индекса типов документов
-class DocumentTypeIndexBuilder (wiki_iterator.WikiIterator):
+class DocumentTypeIndexBuilder (WikiIterator):
     
     def __init__(self, accessor):
         self.CODE = 'utf-8'

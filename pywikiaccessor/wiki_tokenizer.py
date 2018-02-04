@@ -47,29 +47,29 @@ class WikiTokenizer:
     def __init__(self):
          
         self.initGrammar()
-        self.headers = re.compile('==+ ([^=]*) ==+ \n', re.VERBOSE)
-        self.template = re.compile('\{\{([^\{\}]*)\}\}', re.VERBOSE)
-        self.template2 = re.compile('\{\|([^\{\}]*)\|\}', re.VERBOSE)
-        self.longLinks = re.compile('\[\[([^\[\]\|]*)\|([^\[\]\|]*)\]\]', re.VERBOSE)
-        self.shortLinks = re.compile('\[\[([^\[\]\|]*)\]\]', re.VERBOSE)
-        self.refLinks = re.compile('<ref[^>]*>([^<]*)</ref>', re.VERBOSE)
-        self.nowiki = re.compile('<nowiki[^>]*>([^<]*)</nowiki>', re.VERBOSE)
-        self.br = re.compile('<br>', re.VERBOSE)
-        self.tags = [re.compile('<blockquote[^>]*>([^<]*)</blockquote>', re.VERBOSE),
-                     re.compile('<center[^>]*>([^<]*)</center>', re.VERBOSE),
-                     re.compile('<small[^>]*>([^<]*)</small>', re.VERBOSE),
-                     re.compile('<big[^>]*>([^<]*)</big>', re.VERBOSE),
-                     re.compile('<s[^>]*>([^<]*)</s>', re.VERBOSE),
-                     re.compile('<span[^>]*>([^<]*)</span>', re.VERBOSE),
-                     re.compile('<u[^>]*>([^<]*)</u>', re.VERBOSE),
-                     re.compile('<sup[^>]*>([^<]*)</sup>', re.VERBOSE),
-                     re.compile('<sub[^>]*>([^<]*)</sub>', re.VERBOSE),
-                     re.compile('<math[^>]*>([^<]*)</math>', re.VERBOSE),
+        self.headers = re.compile('==+ ([^=]*) ==+ \n')
+        self.template = re.compile('\{\{([^\{\}]*)\}\}')
+        self.template2 = re.compile('\{\|([^\{\}]*)\|\}')
+        self.longLinks = re.compile('\[\[([^\[\]\|]*)\|([^\[\]\|]*)\]\]')
+        self.shortLinks = re.compile('\[\[([^\[\]\|]*)\]\]')
+        self.refLinks = re.compile('<ref[^>]*>([^<]*)</ref>')
+        self.nowiki = re.compile('<nowiki[^>]*>([^<]*)</nowiki>')
+        self.br = re.compile('<br>')
+        self.tags = [re.compile('<blockquote[^>]*>([^<]*)</blockquote>'),
+                     re.compile('<center[^>]*>([^<]*)</center>'),
+                     re.compile('<small[^>]*>([^<]*)</small>'),
+                     re.compile('<big[^>]*>([^<]*)</big>'),
+                     re.compile('<s[^>]*>([^<]*)</s>'),
+                     re.compile('<span[^>]*>([^<]*)</span>'),
+                     re.compile('<u[^>]*>([^<]*)</u>'),
+                     re.compile('<sup[^>]*>([^<]*)</sup>'),
+                     re.compile('<sub[^>]*>([^<]*)</sub>'),
+                     re.compile('<math[^>]*>([^<]*)</math>'),
                      ]
-        self.brackets = [ re.compile('\\mathbb\{([^\]]+)\}') ]
-        self.fileLinks = re.compile('\[\[([^\[\]\|]*)\|([^\[\]\|]*)(\|([^\[\]\|]*))+\]\]', re.VERBOSE)
-        self.comments = re.compile('(<!--(.+)-->)', re.VERBOSE)
-        self.apostrofs = re.compile("'''(.+)'''", re.VERBOSE)
+        self.brackets = [ re.compile(r'\\mathbb\{([^\]]+)\}') ]
+        self.fileLinks = re.compile('\[\[([^\[\]\|]*)\|([^\[\]\|]*)(\|([^\[\]\|]*))+\]\]')
+        self.comments = re.compile('(<!--(.+)-->)')
+        self.apostrofs = re.compile("'''(.+)'''")
         
         self.lettersDictionary = {
                 'о́':'о',

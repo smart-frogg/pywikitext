@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 import pickle
-from pywikiaccessor import wiki_accessor, wiki_tokenizer, wiki_iterator, wiki_file_index
+from pywikiaccessor.wiki_core import WikiFileIndex,WikiIterator
+from pywikiaccessor.wiki_tokenizer import WikiTokenizer
 
-class WikiPlainTextIndex(wiki_file_index.WikiFileIndex): 
+class WikiPlainTextIndex(WikiFileIndex): 
     def __init__(self, wikiAccessor):
         super(WikiPlainTextIndex, self).__init__(wikiAccessor)
         self.textDict = self.dictionaries['plainTextIndex']
@@ -33,7 +34,7 @@ class WikiPlainTextIndex(wiki_file_index.WikiFileIndex):
     def getName(self):
         return "plainTexts"
 
-class WikiPlainTextBuilder (wiki_iterator.WikiIterator):
+class WikiPlainTextBuilder (WikiIterator):
     
     def __init__(self, directory):
         self.CODE = 'utf-8'
@@ -50,7 +51,7 @@ class WikiPlainTextBuilder (wiki_iterator.WikiIterator):
 
     def preProcess(self):
         self.textFile = open(self.getFullFileName("plainText.dat"), 'wb')
-        self.tokenizer = wiki_tokenizer.WikiTokenizer()
+        self.tokenizer = WikiTokenizer()
         self.textShift = 0
         self.textDict = {}
                

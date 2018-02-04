@@ -2,13 +2,10 @@
 from pytextutils.token_splitter import TokenSplitter, POSTagger, TYPE_SIGN, TYPE_COMPLEX_TOKEN
 from pytextutils.grammar_base import FormalLanguagesMatcher 
 from pytextutils.grammar_lexic import DefisWordsBuilder
-from pywikiaccessor.wiki_accessor import WikiAccessor
-from pywikiaccessor.wiki_file_index import WikiFileIndex
+from pywikiaccessor.wiki_core import WikiConfiguration, WikiFileIndex, TitleIndex, WikiBaseIndex
 from pywikiaccessor.wiki_categories import CategoryIndex
-from pywikiaccessor.title_index import TitleIndex
 from pywikiaccessor.document_type import DocumentTypeIndex
 from pywikiaccessor.wiki_tokenizer import WikiTokenizer
-from pywikiaccessor.wiki_base_index import WikiBaseIndex
 from pytextutils.text_stat import normalize, normalizeSum, TextStat, normalizeMaxMin, TEXT_STAT_KEYS
 from pywikiutils.wiki_headers import HeadersFileIndex,HeadersFileBuilder
 
@@ -114,8 +111,7 @@ class FragmentConfig:
         return 1 #DocumentTypeConfig.templatesToDoctypes.get(template)
 
 from abc import ABCMeta, abstractmethod
-
-
+            
 class AbstractFragmentIterator(metaclass=ABCMeta): 
     def __init__(self, accessor, headerIndexPrefix):
         self.accessor = accessor
@@ -533,8 +529,8 @@ def getArticles(categories,accessor):
     return pages
     
 def buildHeaders (categories,prefix):
-    directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-    accessor =  WikiAccessor(directory)
+    directory = "C:/WORK/science/python-data/"
+    accessor =  WikiConfiguration(directory)
     pages = getArticles(categories,accessor)
     print(len(pages))    
     hb = HeadersFileBuilder(accessor,list(pages),prefix) 
@@ -550,38 +546,38 @@ def buildHeaders (categories,prefix):
         f.close()
 
 def buildFragments (prefix):
-    directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-    accessor =  WikiAccessor(directory)
+    directory = "C:/WORK/science/python-data/"
+    accessor =  WikiConfiguration(directory)
     fb = СollocationBuilder(accessor,prefix)
     fb.build()
     fb.printFragments(True)
 
 def buildStat (prefix):
-    directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-    accessor =  WikiAccessor(directory)
+    directory = "C:/WORK/science/python-data/"
+    accessor =  WikiConfiguration(directory)
     sb = StatBuilder(accessor,prefix)
     sb.build()
     sb.print()
 
 
 def buildPOSList (prefix):
-    directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-    accessor =  WikiAccessor(directory)
+    directory = "C:/WORK/science/python-data/"
+    accessor =  WikiConfiguration(directory)
     sb = POSListBuilder(accessor,prefix)
     sb.build()
     sb.printTfIdf()
 
 def getStat():
-    directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-    accessor =  WikiAccessor(directory)
+    directory = "C:/WORK/science/python-data/"
+    accessor =  WikiConfiguration(directory)
     bi = WikiBaseIndex(accessor)
     print('Articles in Wikipedia:' + str(bi.getCount()))
     pages = getArticles(['Математика','Информатика','Физика'],accessor)
     print('Articles in Subset:' + str(len(pages)))
 
 def getStatByNouns():
-    directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-    accessor =  WikiAccessor(directory)
+    directory = "C:/WORK/science/python-data/"
+    accessor =  WikiConfiguration(directory)
     pi = POSListIndex(accessor,'miph_')
     for fType in pi.getFunctionalTypes():
         print (fType)
@@ -592,10 +588,10 @@ def getStatByNouns():
     
 if __name__ =="__main__":
     #buildHeaders(['Математика','Информатика','Физика'],'miph_')
-    #buildPOSList ('miph_')
-    #buildFragments('miph_')
+    buildPOSList ('miph_')
+    buildFragments('miph_')
     getStatByNouns()
-    #buildStat('miph_')
+    buildStat('miph_')
 
 
 '''

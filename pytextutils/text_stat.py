@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from pytextutils.token_splitter import Token, TokenSplitter, POSTagger, TYPE_SIGN, TYPE_TOKEN, TYPE_WORD,LITTLE_CYR_LETTERS, BIG_CYR_LETTERS
+from pytextutils.token_splitter import TokenSplitter, POSTagger, TYPE_SIGN, TYPE_TOKEN, TYPE_WORD,LITTLE_CYR_LETTERS, BIG_CYR_LETTERS
 import re
 import codecs
 import pickle
@@ -26,7 +26,7 @@ class TextCleaner(metaclass= OneOpened):
     __startStringRegex = re.compile('^[1234567890.)(\[\]]+', re.VERBOSE)
 
     def __loadAbbrs(self):
-        with open(self.directory + 'abbrsConfig.json', encoding="utf8") as data_file:    
+        with open(self.directory + 'config/abbrsConfig.json', encoding="utf8") as data_file:    
             self.__abbrs = json.load(data_file,encoding="utf-8")
  
     def __clearAbbr(self,text):
