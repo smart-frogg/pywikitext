@@ -134,6 +134,9 @@ class TextFragmentator:
                 oneEstimation = self.estimate(fType, tokens[ind],hists)
                 lexicalEstimations[ind][fTypeInd] = oneEstimation['lexical']
                 patternEstimations[ind][fTypeInd] = oneEstimation['pattern']
+        if lexicalEstimations.size == 0:
+#            print("!")
+            return tokens
         lexicalEstimations = lexicalEstimations / np.amax(lexicalEstimations)
         patternEstimations = patternEstimations / np.amax(patternEstimations)
         totalEstimations = patternEstimations + 0.5*lexicalEstimations

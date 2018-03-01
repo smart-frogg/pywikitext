@@ -148,7 +148,7 @@ class TitleIndex (WikiFileIndex):
         return self.dictionaries['title_IdToTitleIndex'].get(ident, None)
     
     def getIdByTitle(self, title):
-        key = title.lower().replace("_"," ")
+        key = title.replace("_"," ")
         return self.dictionaries['title_TitleToIdIndex'].get(key, None)
     
     def findArticleId(self,title):
@@ -248,7 +248,7 @@ class TitleIndexBuilder (WikiIterator):
         return 
 
     def processDocument(self, docId):
-        title = self.wikiTitleIndex.getTitleArticleById(docId).lower().replace("_"," ")  
+        title = self.wikiTitleIndex.getTitleArticleById(docId).replace("_"," ")  
         self.toTitleDict[docId] = title
         self.toIdDict[title] = docId
     

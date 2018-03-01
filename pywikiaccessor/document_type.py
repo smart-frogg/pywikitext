@@ -71,7 +71,7 @@ class DocumentTypeConfig:
     doctypeList = []
     def __new__(cls,directory):
         if not DocumentTypeConfig.doctypes:
-            with open(directory + 'DocumentTypeConfig.json', encoding="utf8") as data_file:    
+            with open(directory + 'config/DocumentTypeConfig.json', encoding="utf8") as data_file:    
                 doctypes = json.load(data_file,encoding="utf-8")
                 for doctype in doctypes:
                     doctype['name'] = doctype['name'].lower()
@@ -137,17 +137,17 @@ class StupidTemplateParser (WikiDocTypeParser):
             match = self.templatePatterns[template].search(preparedText)
             if match:
                 result.add(DocumentTypeConfig.templatesToDoctypes[template])
-                break
+                #break
         for prop in  DocumentTypeConfig.propsToDoctypes.keys():
             match = self.propertyPatterns[prop].search(preparedText)
             if match:
                 result.add(DocumentTypeConfig.propsToDoctypes[prop])
-                break
+                #break
         for docType in self.categoryLists.keys():
             docCats = self.categoryIndex.getPageDirectCategories(docId)
             if any(cat in self.categoryLists[docType] for cat in docCats): 
                 result.add(docType)
-                break
+                #break
         for prefix in  DocumentTypeConfig.prefixesToDoctypes.keys():
             if preparedTitle.startswith(prefix+":"):
                 result.add(DocumentTypeConfig.prefixesToDoctypes[prefix])
@@ -277,20 +277,20 @@ class DocumentTypeIndexBuilder (WikiIterator):
                 self.dataToIds[docType] = set()
             self.dataToIds[docType].add(docId)
 
-#if __name__ == '__main__':
-#from pywikiaccessor.wiki_accessor import WikiAccessor            
-#directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-#accessor =  WikiAccessor(directory)
+if __name__ == '__main__':
+    from pywikiaccessor.wiki_core import WikiConfiguration            
+    directory = "C:/WORK/science/python-data/"
+    accessor =  WikiConfiguration(directory)
  
 #Построение:
-#bld = DocumentTypeIndexBuilder(accessor)
-#titleIndex = accessor.getIndex(TitleIndex)
-#docId = titleIndex.getIdByTitle('5-HT2B-рецептор')
-#bld = DocumentTypeIndexBuilder(accessor)
-#bld.preProcess()
-#bld.processDocument(docId)
-#print(bld.dataToTypes)
-#bld.build()
+    bld = DocumentTypeIndexBuilder(accessor)
+    titleIndex = accessor.getIndex(TitleIndex)
+    docId = titleIndex.getIdByTitle('Президентские выборы в Киргизии (2017)')
+    bld = DocumentTypeIndexBuilder(accessor)
+    bld.preProcess()
+    bld.processDocument(docId)
+    print(bld.dataToTypes)
+    #bld.build()
 
 #titleIndex = accessor.getIndex(TitleIndex)
 #index = DocumentTypeIndex(accessor)

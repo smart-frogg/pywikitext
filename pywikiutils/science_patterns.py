@@ -140,12 +140,13 @@ class AbstractFragmentIterator(metaclass=ABCMeta):
     def build(self):
         self.preProcess()
         for fType in FragmentConfig.fragmentTypesToHeaders.keys():
-            print("Process "+fType)
+            print("Process "+fType+". Need to process "+str(len(FragmentConfig.fragmentTypesToHeaders[fType]))+" unique headers.")
             self.processFragmentStart(fType)
             docCount = 0
             for header in FragmentConfig.fragmentTypesToHeaders[fType]:
                 headerId = self.headerIndex.headerId(header)
                 docs = self.headerIndex.documentsByHeader(header)
+                print("Need to process "+str(len(docs))+" documents.")
                 for docId in docs:
                     self.processDocument(fType, headerId, docId)
                     docCount+=1
@@ -176,6 +177,7 @@ class СollocationBuilder(AbstractFragmentIterator):
             for fragment in sorted(self.fragments[fType], key=self.fragments[fType].get, reverse=True):
                 grammars[fType].append({
                         'name': str(fragment),
+                        'count': self.fragments[fType][fragment],
                         'freq': self.fragments[fType][fragment]/self.fragmentLen[fType],
                         'total_freq':self.totalCounts[fragment]/self.totalLen,
                         'grammar':fragment.genGrammar(),
@@ -502,24 +504,32 @@ class CollocationGrammars(WikiFileIndex):
     def getName(self):
         return "collocatoin_grammars"
 
-def getArticles(categories,accessor):
+def getArticles(categories,stopCategories,accessor):
     categoryIndex = accessor.getIndex(CategoryIndex)
     titleIndex = accessor.getIndex(TitleIndex)
     documentTypes = accessor.getIndex(DocumentTypeIndex)        
     
+    stopCatsSet = set() 
+    for cat in categories:
+        stopCatsSet.add(categoryIndex.getIdByTitle(cat))
+        
     pages = set()
     for cat in categories:
         categoryId = categoryIndex.getIdByTitle(cat)
-        catPages = categoryIndex.getAllPagesAsSet(categoryId)
+        catPages = categoryIndex.getAllPagesAsSet(categoryId, stopCatsSet)
         pages.update(catPages)
     with codecs.open( accessor.directory+'titles.txt', 'w', 'utf-8' ) as f:
         for p in list(pages):
             if (documentTypes.isDocType(p,'person') or 
-                documentTypes.isDocType(p,'location') or 
+                documentTypes.isDocType(p,'location') or
+                documentTypes.isDocType(p,'template') or  
                 documentTypes.isDocType(p,'entertainment') or 
                 documentTypes.isDocType(p,'organization') or 
                 documentTypes.isDocType(p,'event') or 
                 documentTypes.isDocType(p,'category') or 
+                documentTypes.isDocType(p,'device') or
+                documentTypes.isDocType(p,'redirect') or
+                documentTypes.isDocType(p,'file') or    
                 documentTypes.isDocType(p,'substance')):
                 pages.discard(p)
             else:
@@ -528,10 +538,10 @@ def getArticles(categories,accessor):
         f.close()
     return pages
     
-def buildHeaders (categories,prefix):
+def buildHeaders (categories,stopCategories,prefix):
     directory = "C:/WORK/science/python-data/"
     accessor =  WikiConfiguration(directory)
-    pages = getArticles(categories,accessor)
+    pages = getArticles(categories,stopCategories,accessor)
     print(len(pages))    
     hb = HeadersFileBuilder(accessor,list(pages),prefix) 
     hb.build()
@@ -587,13 +597,50 @@ def getStatByNouns():
         
     
 if __name__ =="__main__":
-    #buildHeaders(['Математика','Информатика','Физика'],'miph_')
-    buildPOSList ('miph_')
-    buildFragments('miph_')
-    getStatByNouns()
-    buildStat('miph_')
-
-
+    buildHeaders(['Математика','Информатика','Физика'],["Символы"],'miph_')
+    #buildPOSList ('miph_')
+    #buildFragments('miph_')
+    #getStatByNouns()
+    #buildStat('miph_')
+    '''
+    directory = "C:/WORK/science/python-data/"
+    accessor =  WikiConfiguration(directory)
+    grammars = CollocationGrammars(accessor,'miph_')
+    ftypes = grammars.getFunctionalTypes()
+    collSets = {}
+    for ftype in ftypes:
+        collSets[ftype] = set() 
+        coll = grammars.getGrammars(ftype)
+        for c in coll:
+            collSets[ftype].add(c['name'])
+    totalIntersect = collSets["definition"]
+    for type1 in ftypes:
+        totalIntersect = totalIntersect.intersection(collSets[type1])
+        for type2 in ftypes:         
+            if (type1 != type2):
+                intersect = collSets[type1].intersection(collSets[type2])
+                intersectSize = len(intersect)
+                print (type1+"\t"+type2+"\t"+str(intersectSize))
+                print (str(intersectSize/len(collSets[type1]))+"\t"+str(intersectSize/len(collSets[type2]))+"\t")
+                #for a in intersect: 
+                #    print (a)
+    print(len(totalIntersect))
+    collection = {}
+    
+    #for a in totalIntersect: 
+        #print (a)
+    for type1 in ftypes:
+        coll = grammars.getGrammars(type1)
+        for c in coll:
+            if c['name'] in totalIntersect:
+                if not (c['name'] in collection):
+                    collection[c['name']] = {}
+                collection[c['name']][type1] = c['freq']
+    for a in totalIntersect: 
+        print (a)
+        for type1 in ftypes:
+            print (type1+"\t"+str(collection[a][type1]))
+    '''        
 '''
 directory = "C:\\WORK\\science\\onpositive_data\\python\\"
 accessor =  WikiAccessor(directory)

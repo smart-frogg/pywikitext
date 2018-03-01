@@ -22,7 +22,9 @@ class HeadersExtractor:
                 re.compile('\n[ \t]*=([^=]*)=[ \t\r]*\n'),
             ]
     
-    def getHeadersForDoc(self, docId, text):        
+    def getHeadersForDoc(self, docId, text):  
+        if text is None:
+            return [];      
         text = text.lower()
         headers = []
         htype = 6
@@ -159,7 +161,7 @@ class HeadersFileIndex(WikiFileIndex):
     def headersByDoc(self,docId):
         return self.dictionaries['DocumentHeaders'].get(docId,None)   
     def getBuilder(self):
-        return HeadersFileBuilder(self.accessor,self.prefix)
+        return HeadersFileBuilder(self.accessor,prefix=self.prefix)
     def getName(self):
         return "headers"            
 

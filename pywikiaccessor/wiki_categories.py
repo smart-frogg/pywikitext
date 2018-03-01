@@ -28,14 +28,14 @@ class CategoryIndex (WikiFileIndex):
         key = title.lower().replace("_"," ")
         return self.dictionaries['cat_TitleToIdIndex'].get(key, None)
 
-    def getSubCatAsSet(self,catId):
+    def getSubCatAsSet(self,catId,stopCatsSet=set()):
         res = set()
-        return self._getSubCatAsSet(catId,res)
-    def _getSubCatAsSet(self,catId,res):   
+        return self._getSubCatAsSet(catId,res,stopCatsSet)
+    def _getSubCatAsSet(self,catId,res,stopCatsSet=set()):   
         subCats = self.dictionaries['cat_IdToChildrenIndex'][catId]
         #res.update(subCats)
         for cat in subCats:
-            if cat in res or cat == catId:
+            if cat in res or cat == catId or cat in stopCatsSet:
                 continue
             res.add(cat)
             #print(self.getTitleById(cat))
@@ -52,11 +52,13 @@ class CategoryIndex (WikiFileIndex):
             res.update(self.getAllParentsAsSet(cat))
         return res
     
-    def getAllPagesAsSet(self,catId):
+    def getAllPagesAsSet(self,catId, stopCatsSet=set()):
         res = set()
         res.update(self.getDirectPages(catId))
-        subCats = self.getSubCatAsSet(catId)
+        subCats = self.getSubCatAsSet(catId, stopCatsSet)
         for cat in subCats:
+            if cat in stopCatsSet:
+                continue
             res.update(self.getDirectPages(cat))
         return res      
     def getPageDirectCategories(self,docId):
