@@ -4,7 +4,7 @@ from pytextutils.token_splitter import ALL_CYR_LETTERS
 from pywikiaccessor.wiki_tokenizer import WikiTokenizer
 from pywikiaccessor.wiki_core import WikiConfiguration,WikiIterator,WikiFileIndex,WikiBaseIndex
 from pywikiaccessor.document_type import DocumentTypeIndex
-from pywikiaccessor.redirects_index import RedirectsIndex
+from pywikiaccessor.page_types_indexes import RedirectsIndex
 import re
 import pickle
 
@@ -182,6 +182,8 @@ class HeadersFileIndex(WikiFileIndex):
             else:  
                 finish = headers[i]["position_match"]
         return self.wikiTokenizer.clean(text[start:finish])
+    def headerCount(self):
+        return len(self.dictionaries['IdsToHeaders']);
 '''
 Билдер индекса заголовков, хранящийся в базе
 

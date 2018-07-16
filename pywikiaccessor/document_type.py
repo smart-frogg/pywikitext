@@ -56,7 +56,7 @@ import re
 #from antlrwiki.gen.wiki_markupParser import wiki_markupParser
 from abc import ABCMeta, abstractmethod
 from pywikiaccessor.wiki_categories import CategoryIndex
-from pywikiaccessor.redirects_index import RedirectsIndex
+from pywikiaccessor.page_types_indexes import RedirectsIndex
 from pywikiaccessor.wiki_core import TitleIndex
 
 REDIRECT = "redirect"

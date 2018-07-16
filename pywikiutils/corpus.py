@@ -36,21 +36,27 @@ class CorpusBuilder(AbstractFragmentIterator):
         self.fragments = []
         self.titleIndex = WikiTitleBaseIndex(self.accessor)
         self.plainTextIndex = WikiPlainTextIndex(self.accessor)
+        self.frCount = 0
+        self.count = 0
 
     def postProcess(self):
         with open(self.accessor.directory+self.prefix+'corpus.json', 'w') as outfile:
             json.dump(self.fragments, outfile)
             outfile.close()
 
-    def processFragmentStart(self, fType):    
-        pass
+    def processFragmentStart(self, fType):
+        self.count += self.frCount
+        self.frCount = 0    
     def processFragmentEnd(self, fType):    
-        pass
+        print(fType)
+        print(self.frCount)
+        print(self.count) 
     
     def processDocument(self, fType, headerId, docId):
         text = self.headerIndex.getDocSection(docId, headerId)
         item = Corpus.genItem(text,fType,self.headerIndex.headerText(headerId),docId,self.titleIndex.getTitleArticleById(docId))
         self.fragments.append(item);
+        self.frCount +=1
                                                     
 def buildCorpus (directory, prefix):
     accessor =  WikiConfiguration(directory)
