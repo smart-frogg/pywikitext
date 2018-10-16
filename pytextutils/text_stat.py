@@ -23,7 +23,7 @@ class TextCleaner(metaclass= OneOpened):
             text[ind] = curStr
             ind+=1
         return text 
-    __startStringRegex = re.compile('^[1234567890.)(\[\]]+', re.VERBOSE)
+    __startStringRegex = re.compile('^[1234567890.)(\[\]]+')
 
     def __loadAbbrs(self):
         with open(self.directory + 'config/abbrsConfig.json', encoding="utf8") as data_file:    

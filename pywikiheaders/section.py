@@ -73,8 +73,10 @@ class AbstractSectionIterator(metaclass=ABCMeta):
                         print("\tProcess "+str(fragmentCount)+" fragments")
             headerCount+=1    
             self.processHeaderEnd(headerId)
-            if headerCount%100 == 0:
-                print("\tProcess "+str(headerCount)+" headers")    
+            if headerCount%1000 == 0:
+                print("\tProcess "+str(headerCount)+" headers")
+            if headerCount == 2000:
+                break;        
         self.postProcess()
 
 class POSListSectionBuilder(AbstractSectionIterator):
@@ -92,28 +94,21 @@ class POSListSectionBuilder(AbstractSectionIterator):
             pickle.dump(self.dictionaries, f, pickle.HIGHEST_PROTOCOL)
         self.tfidf = {}
         self.tf = {}
-        self.tfAll = {}
         self.tfidf = {}
         self.tf = {}
         for posKey in self.dictionaries:
             self.tfidf[posKey] = {}
             self.tf[posKey] = {}
-            if not self.tfAll.get(posKey,None):
-                self.tfAll[posKey] = {}
             for normForm in self.dictionaries[posKey]:
                 count = self.dictionaries[posKey][normForm]
                 tf = count/self.totalWords[posKey]
-                tfAll = len(list(self.idfData[normForm].elements()))/self.totalWords['_All'][posKey]
-                idf = len(self.dictionaries)/len(self.idfData[normForm]) 
+                idf = len(self.dictionaries)/self.idfData[normForm] 
                 self.tfidf[posKey][normForm] = tf * log(idf) 
                 self.tf[posKey][normForm] = tf 
-                self.tfAll[posKey][normForm] = tfAll
         with open(self.accessor.directory+self.prefix + 'section_tfidf.pcl', 'wb') as f:
             pickle.dump(self.tfidf, f, pickle.HIGHEST_PROTOCOL)
         with open(self.accessor.directory+self.prefix + 'section_tf.pcl', 'wb') as f:
             pickle.dump(self.tf, f, pickle.HIGHEST_PROTOCOL)
-        with open(self.accessor.directory+self.prefix + 'section_tfAll.pcl', 'wb') as f:
-            pickle.dump(self.tfAll, f, pickle.HIGHEST_PROTOCOL)
 
     def processHeaderStart(self, headerId):
         pass    
@@ -164,18 +159,18 @@ class POSListSectionIndex(WikiFileIndex):
         super(POSListSectionIndex, self).__init__(wikiAccessor,prefix)
     
     def getDictionaryFiles(self): 
-        return ['hists','tfidf','tf','tfAll']
+        return ['section_hists','section_tfidf','section_tf','section_tfAll']
     
     def getUniqueNounsCount(self):
-        wordDict = self.dictionaries['hists']['NOUN']
+        wordDict = self.dictionaries['section_hists']['NOUN']
         unoqueCount = len(list(wordDict.values()))
         return unoqueCount
     def getTotalNounsCount(self):
-        wordDict = self.dictionaries['hists']['NOUN']
+        wordDict = self.dictionaries['section_hists']['NOUN']
         fullCount = sum(list(wordDict.values()))
         return fullCount
     def getFunctionalNouns(self, part):
-        wordDict = self.dictionaries['hists']['NOUN']
+        wordDict = self.dictionaries['section_hists']['NOUN']
         fullCount = sum(list(wordDict.values()))
         count = 0
         goodWords = []
@@ -186,10 +181,10 @@ class POSListSectionIndex(WikiFileIndex):
             goodWords.append(word)
         return goodWords
     def getKeyNouns(self,part = 0.3):
-        wordDict = self.dictionaries['hists']['NOUN']
-        tfidfDict = self.dictionaries['tfidf']['NOUN']
-        tfDict = self.dictionaries['tf']['NOUN']
-        tfAll = self.dictionaries['tfAll']['NOUN']
+        wordDict = self.dictionaries['section_hists']['NOUN']
+        tfidfDict = self.dictionaries['section_tfidf']['NOUN']
+        tfDict = self.dictionaries['section_tf']['NOUN']
+        tfAll = self.dictionaries['section_tfAll']['NOUN']
         fullCount = sum(list(wordDict.values()))
         count = 0
         goodWords = []
@@ -203,10 +198,10 @@ class POSListSectionIndex(WikiFileIndex):
         return goodWords
         
     def getKeyVerbs(self,weight, part):
-        wordDict = self.dictionaries['hists']['VERB']
-        tfidfDict = self.dictionaries['tfidf']['VERB']
-        tfDict = self.dictionaries['tf']['VERB']
-        tfAll = self.dictionaries['tfAll']['VERB']
+        wordDict = self.dictionaries['section_hists']['VERB']
+        tfidfDict = self.dictionaries['section_tfidf']['VERB']
+        tfDict = self.dictionaries['section_tf']['VERB']
+        tfAll = self.dictionaries['section_tfAll']['VERB']
         fullCount = sum(list(wordDict.values()))
         count = 0
         goodWords = []
@@ -219,7 +214,7 @@ class POSListSectionIndex(WikiFileIndex):
             goodWords.append(word)
         return goodWords
     def getMostFreqVerbs(self, part):
-        wordDict = self.dictionaries['hists']['VERB']
+        wordDict = self.dictionaries['section_hists']['VERB']
         fullCount = sum(list(wordDict.values()))
         count = 0
         goodWords = []
@@ -230,9 +225,9 @@ class POSListSectionIndex(WikiFileIndex):
             goodWords.append(word)
         return goodWords
     def getKeyVerbsAsDict(self):
-        return self.dictionaries['hists']['VERB']
+        return self.dictionaries['section_hists']['VERB']
     def getKeyNounsAsDict(self):
-        return self.dictionaries['hists']['NOUN']
+        return self.dictionaries['section_hists']['NOUN']
     def getBuilder(self):
         return POSListSectionBuilder(self.accessor,self.prefix)
     def getName(self):
@@ -320,6 +315,6 @@ def buildSectionCollocations (prefix):
     fb.build()
     fb.printFragments(True)
 if __name__ =="__main__":
-    buildPOSSectionList ('miph_')
-    #buildSectionCollocations('miph_')
+    #buildPOSSectionList ('miph_')
+    buildSectionCollocations('miph_')
                        

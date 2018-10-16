@@ -7,8 +7,6 @@ import numpy as np
 from sklearn.decomposition import PCA as sklearnPCA
 from sklearn.preprocessing import StandardScaler
 from pytextutils.text_stat import TEXT_STAT_KEYS
-from sklearn.decomposition import PCA as sklearnPCA
-from sklearn.preprocessing import StandardScaler
 from pytextutils.text_stat import normalize,normalizeMaxMin
 
 class TextVisualizator:
@@ -83,9 +81,9 @@ class TextVisualizator:
 
      
 if __name__ =="__main__":
-    from pywikiaccessor.wiki_accessor import WikiAccessor
+    from pywikiaccessor.wiki_core import WikiConfiguration
     directory = "C:\\WORK\\science\\onpositive_data\\python\\"
-    accessor = WikiAccessor(directory)
+    accessor = WikiConfiguration(directory)
     #TextVisualizator(accessor,'miph_',output_type="div").getStat()
     #PCAWikiVisualizator(accessor,'miph_').getHists("UNIQUE_VERBS")
 

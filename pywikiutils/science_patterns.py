@@ -520,11 +520,11 @@ def getStatByNouns():
         
     
 if __name__ =="__main__":
-    buildHeaders(['Математика','Информатика','Физика'],["Символы"],'miph_')
+    #buildHeaders(['Математика','Информатика','Физика'],["Символы"],'miph_')
     #buildPOSList ('miph_')
     #buildFragments('miph_')
     #getStatByNouns()
-    #buildStat('miph_')
+    buildStat('miph_')
     '''
     directory = "C:/WORK/science/python-data/"
     accessor =  WikiConfiguration(directory)

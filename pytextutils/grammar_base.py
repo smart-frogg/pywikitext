@@ -8,7 +8,6 @@ def genComplexToken(tokens, start, end, embedNewToken = True,lexicalMode=False):
     tokenTextArray = []
     for i in range(start, end):
         tokenTextArray.append(tokens[i].token)
-    
     if len(tokenTextArray) == 0:
         return None
     if lexicalMode:
@@ -168,7 +167,10 @@ class FormalGrammar(metaclass=ABCMeta):
         return result 
     
     def matchEndOfText(self,param):
-        return self.tokenUnify == len(self.tokens)-1
+        result = self.tokenUnify == len(self.tokens)-1
+        if result:
+            self.tokenUnify += 1 
+        return result 
     
     def matchNot(self,param):
         result = self.__unify(param) 
@@ -251,7 +253,7 @@ class FormalGrammar(metaclass=ABCMeta):
             result = self.__unify(param['exp'])
             
         if not isInclude:    
-            self.tokenUnify = oldTokenUnify  
+            self.tokenUnify = oldTokenUnify 
         return True     
             
     def genToken(self,start,end):    
