@@ -38,7 +38,7 @@ class CategoryIndex (WikiFileIndex):
             if cat in res or cat == catId or cat in stopCatsSet:
                 continue
             res.add(cat)
-            print(str(self.getTitleById(cat)))
+            # print(str(self.getTitleById(cat)))
             res.update(self._getSubCatAsSet(cat,res))
         return res
 
