@@ -330,13 +330,13 @@ class CollocationGrammars(WikiFileIndex):
     def getName(self):
         return "collocatoin_grammars"
 
-def getArticles(categories,stopCategories,accessor):
+def getArticles(categories,stopCategories,stopDocTypes,accessor):
     categoryIndex = accessor.getIndex(CategoryIndex)
     titleIndex = accessor.getIndex(TitleIndex)
     documentTypes = accessor.getIndex(DocumentTypeIndex)        
     
     stopCatsSet = set() 
-    for cat in categories:
+    for cat in stopCategories:
         stopCatsSet.add(categoryIndex.getIdByTitle(cat))
         
     pages = set()
@@ -344,20 +344,17 @@ def getArticles(categories,stopCategories,accessor):
         categoryId = categoryIndex.getIdByTitle(cat)
         catPages = categoryIndex.getAllPagesAsSet(categoryId, stopCatsSet)
         pages.update(catPages)
+    
+    stopDocTypesToCheck = list(stopDocTypes)
+    stopDocTypesToCheck.append('category')
+    stopDocTypesToCheck.append('template')    
+    stopDocTypesToCheck.append('file')
+    stopDocTypesToCheck.append('redirect')
+    
     with codecs.open( accessor.directory+'titles.txt', 'w', 'utf-8' ) as f:
         for p in list(pages):
-            if (documentTypes.isDocType(p,'person') or 
-                documentTypes.isDocType(p,'location') or
-                documentTypes.isDocType(p,'template') or  
-                documentTypes.isDocType(p,'entertainment') or 
-                documentTypes.isDocType(p,'organization') or 
-                documentTypes.isDocType(p,'event') or 
-                documentTypes.isDocType(p,'category') or 
-                documentTypes.isDocType(p,'device') or
-                documentTypes.isDocType(p,'redirect') or
-                documentTypes.isDocType(p,'file') or    
-                documentTypes.isDocType(p,'substance')):
-                pages.discard(p)
+            if (documentTypes.haveDocType(p,stopDocTypesToCheck)):
+                pages.discard(p)                
             else:
                 # print(titleIndex.getTitleById(p))
                if titleIndex.getTitleById(p) is not None:
@@ -365,10 +362,10 @@ def getArticles(categories,stopCategories,accessor):
         f.close()
     return pages
     
-def buildHeaders (categories,stopCategories,prefix):
+def buildHeaders (categories,prefix,stopCategories=[],stopDocTypes=[]):
     directory = "C:/WORK/science/python-data/"
     accessor =  WikiConfiguration(directory)
-    pages = getArticles(categories,stopCategories,accessor)
+    pages = getArticles(categories,stopCategories,stopDocTypes,accessor)
     print(len(pages))    
     hb = HeadersFileBuilder(accessor,list(pages),prefix) 
     hb.build()
@@ -416,7 +413,10 @@ def getStatByNouns():
         
     
 if __name__ =="__main__":
-    buildHeaders(['Математика','Информатика','Физика'],["Символы"],'miph_')
+    dTypes = ['person','location','entertainment','organization','event','device','substance']
+
+    #buildHeaders(['Математика','Информатика','Физика'],'miph_'["Символы"],dTypes)
+    buildHeaders(['Медицина'],'med_', [],dTypes)
     #buildPOSList ('miph_')
     #buildFragments('miph_')
     #getStatByNouns()
