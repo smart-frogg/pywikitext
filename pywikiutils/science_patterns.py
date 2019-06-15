@@ -353,7 +353,7 @@ def getArticles(categories,stopCategories,stopDocTypes,accessor):
     
     with codecs.open( accessor.directory+'titles.txt', 'w', 'utf-8' ) as f:
         for p in list(pages):
-            print (titleIndex.getTitleById(p))
+            #print (titleIndex.getTitleById(p))
             if (documentTypes.haveDocType(p,stopDocTypesToCheck)):
                 pages.discard(p)                
             else:
