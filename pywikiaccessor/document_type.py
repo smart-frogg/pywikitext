@@ -77,7 +77,8 @@ class DocumentTypeConfig:
                 doctypes = json.load(data_file,encoding="utf-8")
                 doctypeId = 0
                 DocumentTypeConfig.reverseIds.append(REDIRECT)
-                DocumentTypeConfig.ids[REDIRECT] = doctypeId 
+                DocumentTypeConfig.ids[REDIRECT] = doctypeId
+                doctypeId+=1 
                 for doctype in doctypes:
                     doctype['name'] = doctype['name'].lower()
                     doctype['id'] = doctypeId

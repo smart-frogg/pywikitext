@@ -353,6 +353,7 @@ def getArticles(categories,stopCategories,stopDocTypes,accessor):
     
     with codecs.open( accessor.directory+'titles.txt', 'w', 'utf-8' ) as f:
         for p in list(pages):
+            print (titleIndex.getTitleById(p))
             if (documentTypes.haveDocType(p,stopDocTypesToCheck)):
                 pages.discard(p)                
             else:
@@ -366,7 +367,10 @@ def buildHeaders (categories,prefix,stopCategories=[],stopDocTypes=[]):
     directory = "C:/WORK/science/python-data/"
     accessor =  WikiConfiguration(directory)
     pages = getArticles(categories,stopCategories,stopDocTypes,accessor)
-    print(len(pages))    
+    print(len(pages))  
+    if len(pages) == 0 :
+        print ("There is no articles for these parameters!")
+        return   
     hb = HeadersFileBuilder(accessor,list(pages),prefix) 
     hb.build()
     hi = HeadersFileIndex(accessor,prefix)
@@ -413,10 +417,12 @@ def getStatByNouns():
         
     
 if __name__ =="__main__":
-    dTypes = ['person','location','entertainment','organization','event','device','substance']
+    #dTypes = ['person','location','entertainment','organization','event','device','substance']
 
     #buildHeaders(['Математика','Информатика','Физика'],'miph_'["Символы"],dTypes)
-    buildHeaders(['Медицина'],'med_', [],dTypes)
+    dTypes = ['person','location','entertainment','event','device']
+    buildHeaders(['Виноделие россии','Виноделие чехии','Резина'],'vine_',['Пиво россии','Пивоварение','Ром'],dTypes)
+    #buildHeaders(['Медицина'],'med_', [],dTypes)
     #buildPOSList ('miph_')
     #buildFragments('miph_')
     #getStatByNouns()
