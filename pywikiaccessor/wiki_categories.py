@@ -38,7 +38,7 @@ class CategoryIndex (WikiFileIndex):
             if cat in res or cat == catId or cat in stopCatsSet:
                 continue
             res.add(cat)
-            #print(self.getTitleById(cat))
+            print(str(self.getTitleById(cat)))
             res.update(self._getSubCatAsSet(cat,res))
         return res
 
@@ -77,12 +77,12 @@ class CategoryIndexBuilder:
     def build(self):
         self.fromPagesBuilder.preProcess()
         self.fromPagesBuilder.build()
-        self.fromCatlinksBuilder.build(self.fromPagesBuilder)
+        self.fromCatlinksBuilder.build(self.fromPagesBuilder,True)
         
 class CategoryFromCatlinksBuilder:
     def __init__(self, accessor):
         self.accessor = accessor
-    def build(self, dictionaries = None):
+    def build(self, dictionaries = None, compact = False):
         wl = WikiSqlLoader()
         if dictionaries:
             self.toTitleDict = dictionaries.toTitleDict
@@ -104,7 +104,10 @@ class CategoryFromCatlinksBuilder:
             self.catCount = 0
         self.count = 0
         wl.parse(self.accessor.directory+"categorylinks.sql",self)
-        saveDictionaries(self)
+        if (compact):
+            saveCompactDictionaries(self)
+        else:
+            saveDictionaries(self)
     def getOrAdd(self,title):
         clearTitle = title.lower().replace("_"," ").replace("ё","е")
         catId = self.toIdDict.get(clearTitle,"None")
@@ -159,7 +162,6 @@ def makeCompact(listOfListDictionaty):
     return tuple(listOfListDictionaty)      
             
 def saveCompactDictionaries(dictionaries):
-    dictionaries.toTitleDict = makeCompact(dictionaries.toTitleDict)
     dictionaries.toParentDict = makeCompact(dictionaries.toParentDict)
     dictionaries.toChildrenDict = makeCompact(dictionaries.toChildrenDict)
     dictionaries.toPagesDict = makeCompact(dictionaries.toPagesDict)
