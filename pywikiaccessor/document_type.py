@@ -69,29 +69,38 @@ class DocumentTypeConfig:
     prefixesToDoctypes = {}
     categoriesToDoctypes = {}
     doctypeList = []
+    ids = {}
+    reverseIds = []
     def __new__(cls,directory):
         if not DocumentTypeConfig.doctypes:
             with open(directory + 'config/DocumentTypeConfig.json', encoding="utf8") as data_file:    
                 doctypes = json.load(data_file,encoding="utf-8")
+                doctypeId = 0
+                DocumentTypeConfig.reverseIds.append(REDIRECT)
+                DocumentTypeConfig.ids[REDIRECT] = doctypeId 
                 for doctype in doctypes:
                     doctype['name'] = doctype['name'].lower()
+                    doctype['id'] = doctypeId
+                    DocumentTypeConfig.reverseIds.append(doctype['name'])
+                    DocumentTypeConfig.ids[doctype['name']] = doctypeId 
+                    doctypeId += 1
                     DocumentTypeConfig.doctypeList.append(doctype['name'])
                     if (doctype.get('templates',None)):
                         for template in doctype['templates']:
                             template = template.lower()
-                            DocumentTypeConfig.templatesToDoctypes[template] = doctype['name']    
+                            DocumentTypeConfig.templatesToDoctypes[template] = doctype['id']    
                     if (doctype.get('properties',None)): 
                         for prop in doctype['properties']:
                             prop = prop.lower()
-                            DocumentTypeConfig.propsToDoctypes[prop] = doctype['name']
+                            DocumentTypeConfig.propsToDoctypes[prop] = doctype['id']
                     if (doctype.get('prefixes',None)): 
                         for prefix in doctype['prefixes']:
                             prefix = prefix.lower()
-                            DocumentTypeConfig.prefixesToDoctypes[prefix] = doctype['name']
+                            DocumentTypeConfig.prefixesToDoctypes[prefix] = doctype['id']
                     if (doctype.get('categories',None)): 
                         for category in doctype['categories']:
                             category = category.lower()
-                            DocumentTypeConfig.categoriesToDoctypes[category] = doctype['name']
+                            DocumentTypeConfig.categoriesToDoctypes[category] = doctype['id']
         return doctypes 
     @staticmethod
     def getDocTypeByTemplate(template):
@@ -205,9 +214,10 @@ from pywikiaccessor.wiki_core import WikiIterator,WikiFileIndex
 class DocumentTypeIndex(WikiFileIndex):
     def __init__(self, wikiAccessor):
         super(DocumentTypeIndex, self).__init__(wikiAccessor)
+        self.doctypes = DocumentTypeConfig(wikiAccessor.directory)
     
     def getDictionaryFiles(self): 
-        return ['doctype_IdToDocTypes','doctype_DocTypesToId']
+        return ['doctype_IdToDocTypes','doctype_DocTypesToId','doctype_DocWithoutTypes']
                         
     def getDocTypeById(self, ident):
         return self.dictionaries['doctype_IdToDocTypes'].get(ident, None)
@@ -215,18 +225,42 @@ class DocumentTypeIndex(WikiFileIndex):
     def isDocType(self, ident, docType):
         dtList = self.getDocTypeById(ident)
         if not dtList:
-            return False 
-        return docType.lower() in dtList
+            return False
+        idToFind = DocumentTypeConfig.ids[docType.lower()]
+        if isinstance(dtList, set):
+            return idToFind in dtList
+        else:
+            return idToFind == dtList
+
+    def haveDocType(self, ident, docTypeList):
+        
+        dtList = self.getDocTypeById(ident)
+        if not dtList:
+            return False
+        docTypeIds = set()
+        for docTypeName in docTypeList:
+            id = DocumentTypeConfig.ids[docTypeName.lower()]
+            if id: 
+                docTypeIds.add(id)
+        if isinstance(dtList, set):
+            for item in dtList:
+                if item in docTypeIds:
+                    return True
+            return False
+        else:
+            return dtList in docTypeIds
+
 
     def getDocsOfType(self,docType):
         return self.dictionaries['doctype_DocTypesToId'][docType]
 
     def getDocsWithoutType(self):
-        res = []
-        for docId in self.dictionaries['doctype_IdToDocTypes'].keys():
-            if len(self.dictionaries['doctype_IdToDocTypes'][docId]) == 0:
-                res.append(docId)
-        return res
+        return list(self.dictionaries['doctype_DocWithoutTypes'])
+        #res = []
+        #for docId in self.dictionaries['doctype_IdToDocTypes'].keys():
+        #    if len(self.dictionaries['doctype_IdToDocTypes'][docId]) == 0:
+        #        res.append(docId)
+        #return res
 
     def getBuilder(self):
         return DocumentTypeIndexBuilder(self.accessor)
@@ -246,14 +280,21 @@ class DocumentTypeIndexBuilder (WikiIterator):
         return
 
     def postProcess(self):
+        with open(self.getFullFileName('doctype_DocWithoutTypes.pcl'), 'wb') as f:
+            pickle.dump(frozenset(self.docWithoutTypes), f, pickle.HIGHEST_PROTOCOL)               
         with open(self.getFullFileName('doctype_IdToDocTypes.pcl'), 'wb') as f:
             pickle.dump(self.dataToTypes, f, pickle.HIGHEST_PROTOCOL)
+        
+        compactDataToIds = {}
+        for docType, docSet in self.dataToIds.items():
+            compactDataToIds[docType] = frozenset(docSet)
         with open(self.getFullFileName('doctype_DocTypesToId.pcl'), 'wb') as f:
-            pickle.dump(self.dataToIds, f, pickle.HIGHEST_PROTOCOL)
+            pickle.dump(compactDataToIds, f, pickle.HIGHEST_PROTOCOL)
 
     def preProcess(self):
         self.dataToTypes = {}
         self.dataToIds = {}
+        self.docWithoutTypes = set()
         self.redirects = self.accessor.getIndex(RedirectsIndex)
         self.titleIndex = self.accessor.getIndex(TitleIndex)
         self.dataToIds[REDIRECT] = set()
@@ -271,26 +312,34 @@ class DocumentTypeIndexBuilder (WikiIterator):
         title = self.titleIndex.getTitleById(docId)
         text = self.wikiIndex.getTextArticleById(docId)
         #print(text)
-        self.dataToTypes[docId] = self.docTypeParser.getDocType(docId,text,title)
-        for docType in self.dataToTypes[docId]:
-            if not self.dataToIds.get(docType,None):
-                self.dataToIds[docType] = set()
-            self.dataToIds[docType].add(docId)
+        types = self.docTypeParser.getDocType(docId,text,title)
+        if (len(types) == 0):
+            self.docWithoutTypes.add(docId)
+        else:
+            if (len(types) == 1):
+                self.dataToTypes[docId] = list(types)[0]
+            else:
+                self.dataToTypes[docId] = frozenset(types)
+            for docType in types:
+                if not self.dataToIds.get(docType,None):
+                    self.dataToIds[docType] = set()
+                self.dataToIds[docType].add(docId)
 
 if __name__ == '__main__':
     from pywikiaccessor.wiki_core import WikiConfiguration            
     directory = "C:/WORK/science/python-data/"
     accessor =  WikiConfiguration(directory)
- 
+    # index = DocumentTypeIndex(accessor)
 #Построение:
     bld = DocumentTypeIndexBuilder(accessor)
-    titleIndex = accessor.getIndex(TitleIndex)
-    docId = titleIndex.getIdByTitle('Президентские выборы в Киргизии (2017)')
-    bld = DocumentTypeIndexBuilder(accessor)
-    bld.preProcess()
-    bld.processDocument(docId)
-    print(bld.dataToTypes)
-    #bld.build()
+   
+    #titleIndex = accessor.getIndex(TitleIndex)
+    #docId = titleIndex.getIdByTitle('Президентские выборы в Киргизии (2017)')
+    #bld = DocumentTypeIndexBuilder(accessor)
+    #bld.preProcess()
+    #bld.processDocument(docId)
+    #print(bld.dataToTypes)
+    bld.build()
 
 #titleIndex = accessor.getIndex(TitleIndex)
 #index = DocumentTypeIndex(accessor)

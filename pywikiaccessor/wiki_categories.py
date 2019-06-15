@@ -152,6 +152,18 @@ def saveDictionaries(dictionaries):
         pickle.dump(dictionaries.toPagesDict, f, pickle.HIGHEST_PROTOCOL)
     with open(dictionaries.getFullFileName('cat_PagesToCatIndex.pcl'), 'wb') as f:
         pickle.dump(dictionaries.toPageCatDict, f, pickle.HIGHEST_PROTOCOL)
+
+def makeCompact(listOfListDictionaty):
+    for i in range(0, len(listOfListDictionaty)):
+        listOfListDictionaty[i] = tuple(listOfListDictionaty[i]) 
+    return tuple(listOfListDictionaty)      
+            
+def saveCompactDictionaries(dictionaries):
+    dictionaries.toTitleDict = makeCompact(dictionaries.toTitleDict)
+    dictionaries.toParentDict = makeCompact(dictionaries.toParentDict)
+    dictionaries.toChildrenDict = makeCompact(dictionaries.toChildrenDict)
+    dictionaries.toPagesDict = makeCompact(dictionaries.toPagesDict)
+    saveDictionaries(dictionaries);        
                 
 class CategoryFromPagesBuilder (WikiIterator):
     def __init__(self, accessor):
