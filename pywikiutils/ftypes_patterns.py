@@ -17,22 +17,19 @@ from collections import Counter
 from math import log
 
 class FragmentConfig:
-    headersToFragmentType = {}
-    fragmentTypesToHeaders= {}
-    fTypes = None
-    def __new__(cls,directory):
-        if not FragmentConfig.fTypes:
-            with open(directory + 'FragmentConfig.json', encoding="utf8") as data_file:    
-                fTypes = json.load(data_file,encoding="utf-8")
-                for ftype in fTypes:
-                    ftype['name'] = ftype['name'].lower()
-                    if (ftype.get('headers',None)):
-                        FragmentConfig.fragmentTypesToHeaders[ftype['name']] = [] 
-                        for header in ftype['headers']:
-                            header = header.lower()
-                            FragmentConfig.fragmentTypesToHeaders[ftype['name']].append(header)
-                            FragmentConfig.headersToFragmentType[header] = ftype['name'] 
-        return FragmentConfig.fTypes               
+    def __init__(self,directory, prefix=""):
+        self.headersToFragmentType = {}
+        self.fragmentTypesToHeaders= {}
+        with open(directory + prefix+ 'FragmentConfig.json', encoding="utf8") as data_file:    
+            self.fTypes = json.load(data_file,encoding="utf-8")
+            for ftype in self.fTypes:
+                ftype['name'] = ftype['name'].lower()
+                if (ftype.get('headers',None)):
+                    self.fragmentTypesToHeaders[ftype['name']] = [] 
+                    for header in ftype['headers']:
+                        header = header.lower()
+                        self.fragmentTypesToHeaders[ftype['name']].append(header)
+                        self.headersToFragmentType[header] = ftype['name'] 
     @staticmethod
     def getDocTypeByTemplate(template):
         return 1 #DocumentTypeConfig.templatesToDoctypes.get(template)
@@ -46,7 +43,7 @@ class AbstractFragmentIterator(metaclass=ABCMeta):
         self.prefix = headerIndexPrefix
         self.tokenSplitter = TokenSplitter()
         self.posTagger = POSTagger()
-        FragmentConfig(accessor.directory)
+        self.fragmentConfig = FragmentConfig(accessor.directory, headerIndexPrefix)
 
     @abstractmethod
     def preProcess(self):
@@ -66,11 +63,11 @@ class AbstractFragmentIterator(metaclass=ABCMeta):
     
     def build(self):
         self.preProcess()
-        for fType in FragmentConfig.fragmentTypesToHeaders.keys():
-            print("Process "+fType+". Need to process "+str(len(FragmentConfig.fragmentTypesToHeaders[fType]))+" unique headers.")
+        for fType in self.fragmentConfig.fragmentTypesToHeaders.keys():
+            print("Process "+fType+". Need to process "+str(len(self.fragmentConfig.fragmentTypesToHeaders[fType]))+" unique headers.")
             self.processFragmentStart(fType)
             docCount = 0
-            for header in FragmentConfig.fragmentTypesToHeaders[fType]:
+            for header in self.fragmentConfig.fragmentTypesToHeaders[fType]:
                 headerId = self.headerIndex.headerId(header)
                 docs = self.headerIndex.documentsByHeader(header)
                 print("Need to process "+str(len(docs))+" documents.")
